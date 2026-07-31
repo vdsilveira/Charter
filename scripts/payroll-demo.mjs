@@ -45,7 +45,9 @@ const client = new ChainClient({
 });
 
 const addrF = addressToField(TOKEN);
-const fromLedger = (await client.rpc?.getLatestLedger?.())?.sequence ?? 0;
+// `client.latestLedger()` — não existe `client.rpc`; o fallback silencioso
+// para 0 fazia o engine varrer a rede inteira em vez de falhar.
+const fromLedger = Math.max((await client.latestLedger()) - 100_000, 1);
 
 /**
  * Raiz determinística das chaves confidenciais.
