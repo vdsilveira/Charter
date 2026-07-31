@@ -1,6 +1,6 @@
 # Estado do Charter — retomada
 
-Última sessão: 31/07/2026. Este arquivo existe para outra sessão continuar sem
+Última sessão: 31/07/2026 — fases 0 a 8 fechadas, exceto o loop HTTP do x402. Este arquivo existe para outra sessão continuar sem
 reconstruir contexto. `SPEC.md` diz o que construir, `PRD.md` por quê,
 `TESTING.md` como testar, e este diz **onde paramos**.
 
@@ -16,21 +16,27 @@ reconstruir contexto. `SPEC.md` diz o que construir, `PRD.md` por quê,
 | 3 · x402 | ⚠️ **parcial** | policy provada on-chain; falta chave externa (§Bloqueios) |
 | 4 · gate confidencial | ✅ | `NotAuthorizedByPolicy (3602)` na testnet |
 | 5 · tesouraria confidencial | ✅ | 6 testes verdes + 3 skip justificados (`set_spender`) |
-| 6 · ativo permissionado `ALPHA` | ⬜ iniciada | wasm construídos, nada implantado |
-| 7 · auditoria e disclosure | ⬜ | 6 casos escritos, todos vermelhos |
-| 8 · console e credencial | ⬜ | 7 casos escritos, todos vermelhos |
+| 6 · ativo permissionado `ALPHA` | ✅ | 6 testes; mint/transfer recusados sem claim, freeze do emissor |
+| 7 · auditoria e disclosure | ✅ | 4 testes; auditor designado abre, chave errada não |
+| 8 · console e credencial | ✅ | 8 testes; credencial em uma leitura, simulação prevê recusa |
 
 **Contratos: 35 testes Rust verdes.** `cd contracts && stellar contract build && cargo test`
 
-**Integração: 29 casos escritos**, 6 verdes na fase 5 + 3 skip justificados. Fases
-6–8 seguem vermelhas por serem trabalho não feito, não por defeito.
+**Integração: 29 casos, 24 verdes, 0 falhas, 5 skip declarados.** `pnpm test`
+
+Os 5 skip: 3 de `set_spender` (SDK não tem witness builder) e 2 de disclosure
+interativa (exige o fluxo da página /verify — a criptografia já tem 19 testes
+no SDK).
 
 ---
 
 ## Próximo passo imediato
 
-**Fase 6 — ativo permissionado `ALPHA`** (§ no fim deste arquivo). É o marco da
-submissão Enterprise e o único que falta para fechar os fluxos E, F e G.
+**O loop HTTP do x402** — é o único item de escopo que falta, e depende de duas
+chaves externas (§Bloqueios). Tudo o mais das fases 0–8 está no ar e testado.
+
+Depois disso: ensaiar a demo ponta a ponta e gravar o vídeo, que o SPEC trata
+como seguro contra a apresentação ao vivo falhar.
 
 ---
 
