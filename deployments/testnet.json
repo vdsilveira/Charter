@@ -1,0 +1,30 @@
+{
+  "network": "testnet",
+  "rpcUrl": "https://soroban-testnet.stellar.org",
+  "passphrase": "Test SDF Network ; September 2015",
+  "deployer": "GBBH2YATAUUFYAYUGAHLKOA4LFFHASVU7SUADEE5PFON7T33URAUBZHJ",
+  "deployerAlias": "admin",
+  "confidential": {
+    "token": "CA5S6EYICLCXCF3J55ALHTAEHOHYSK3WIUM7YTXBLGLM3NYXGZCTDVCI",
+    "verifier": "CAIIE6AUSVHDOYZNDM7QMMANVMCWIPVI7I5F6I6L6JUV7T7MLT5WGPTG",
+    "auditor": "CBC47YVBM2SDBERUM7KUQ6H5EXKDNTO4AXQR463TNNKGLIQHMKHIDBEH",
+    "allowlist": "CBUFGR4H7QEQU4QFRKZRSVFO6BOK7DMGZVWTJY6OVCUM6CMMWCMYBTA5",
+    "blocklist": "CDQTQRMPUSXBRUSUQGOPUUXNV2WACWBV37HQMPRDUPNFW7I23Z5EPYFQ",
+    "factory": "CCECHCYHZA4Q2KX6YFPW7CAD525TTIXXNUUOH54NFJWFRABEDOL3USI2",
+    "underlying": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+    "underlyingNote": "SAC nativo (XLM). Lastro da tesouraria confidencial — ver PRD §14.",
+    "source": "reference/confidential-demo (deployments/testnet.json)"
+  },
+  "accounts": {
+    "ed25519Verifier": "CCGLQGAFA4JQS4HS7HGCKRQWRS3SIZQJ3PFALFL32I5J6GPZNCCKJYOZ",
+    "spendingLimitPolicy": "CC6H4C7WDZVUJQLNJ6WVABYO24C6MOJ72FAJBFHZEC3CPU6NZHFFJLII",
+    "charterAccountSpike": "CAHGAUF23Z6AMGP7XF3WYWFQS3Y3JGW3VCJ2AZFLZQ42A77JLBIAXORP",
+    "charterAccountSpikeNote": "Prova do spike: ContextRule CallContract(XLM SAC), label 'trader', spending_limit 10 XLM / 17280 ledgers, signer ed25519 externo."
+  },
+  "pins": {
+    "ozStellarContracts": "9b5ed96f67aa28a8be73c538f7bfdef65925c6bc",
+    "sorobanSdk": "27.0.2",
+    "stellarCli": "27.1.0",
+    "protocol": 27
+  }
+}

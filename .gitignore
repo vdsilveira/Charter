@@ -1,0 +1,26 @@
+# Rust / Soroban
+target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Node
+node_modules/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Clones de referência (OZ stellar-contracts, demo confidencial).
+# São dependências externas consultadas localmente, não código do projeto.
+reference/
+
+# Segredos e ambiente
+.env
+.env.*
+!.env.example
+*.key
+secrets/
+
+# Sistema
+.DS_Store
+*.log

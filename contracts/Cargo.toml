@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = ["charter-account"]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "MIT"
+
+[workspace.dependencies]
+soroban-sdk = "27.0.2"
+# A versão publicada no crates.io (0.7.2) ainda depende de soroban-sdk ^26.1,
+# o que conflita com o protocolo 27 da testnet e gera `duplicate lang item`.
+# O repo já está em 27.0.2 — usamos git com commit pinado, como faz o demo
+# confidencial. Não seguir a branch durante o evento.
+stellar-accounts = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "9b5ed96f67aa28a8be73c538f7bfdef65925c6bc" }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
