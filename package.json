@@ -1,0 +1,13 @@
+{
+  "name": "charter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Charter — a tesouraria da empresa agentificada na Stellar",
+  "scripts": {
+    "bootstrap:identity": "./scripts/bootstrap-identity.sh"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^16.2.0"
+  }
+}
