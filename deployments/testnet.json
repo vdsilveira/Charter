@@ -34,6 +34,10 @@
     "note": "gatedConfidentialToken = token_with_compliance da OZ com ComplianceConfig.policy = kybPolicy. Conferir a config apos qualquer redeploy: o CLI grava None em Option<Address> sem avisar.",
     "alphaToken": "CA4ZBUWPINGEK37LNH73SRO2QHIVX6X7C33DVWG5B552EFWT3IKYSBWV",
     "alphaCompliance": "CC2OE5OERHIBMHIJZ6F4D7PU55CCVXNTWGDKGXEZYLKUBMBRA3RBK2V2",
-    "alphaNote": "Cotas da AlphaFund (RWA/ERC-3643). Vinculado ao mesmo identityVerifier das demais camadas \u2014 bind_token feito no identity-registry e no compliance."
+    "alphaNote": "Cotas da AlphaFund (RWA/ERC-3643). Vinculado ao mesmo identityVerifier das demais camadas \u2014 bind_token feito no identity-registry e no compliance.",
+    "orgRegistry": "CD2WFJDEHZPSH4KEMYPXXAJCY5SQ5MDWSKNRDZ4TSQXXG56XVZSGEL6I",
+    "complianceGate": "CDPXJODDLI7K5H72XKXKYIDFB4BI6WXQMDZRUFZDPGPAZOUVJ5TSLL3C",
+    "org": "alphafund",
+    "orgAccount": "CC26I3KF3WWHIGQWIQH65HSOROOUW6XXG2FGTZFKAEWKYPGGHLI6OQR6"
   }
 }
