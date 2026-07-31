@@ -3,11 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Charter — a tesouraria da empresa agentificada na Stellar",
+  "description": "Charter \u2014 a tesouraria da empresa agentificada na Stellar",
   "scripts": {
-    "bootstrap:identity": "./scripts/bootstrap-identity.sh"
+    "bootstrap:identity": "./scripts/bootstrap-identity.sh",
+    "demo:agent-payment": "node scripts/agent-payment-demo.mjs",
+    "x402:server": "node src/x402-server.mjs",
+    "x402:agent": "node src/x402-agent.mjs"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^16.2.0"
+    "@stellar/stellar-sdk": "^16.2.0",
+    "@x402/core": "^2.20.0",
+    "@x402/express": "^2.20.0",
+    "@x402/fetch": "^2.20.0",
+    "@x402/stellar": "^2.20.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
   }
 }
