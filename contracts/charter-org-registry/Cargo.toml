@@ -1,5 +1,5 @@
 [package]
-name = "charter-account"
+name = "charter-org-registry"
 edition.workspace = true
 license.workspace = true
 version.workspace = true

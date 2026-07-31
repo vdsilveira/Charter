@@ -25,6 +25,8 @@ use stellar_accounts::{
     smart_account::{ContextRule, Signer},
 };
 
+pub use charter_types::{AgentStats, GateParams};
+
 /// TTL das entradas persistentes: ~30 dias em ledgers, renovado a cada
 /// operação aprovada. Uma demo não pode perder a procuração por archival.
 const TTL_THRESHOLD: u32 = 60 * 60 * 24 / 5 * 15; // ~15 dias
@@ -56,35 +58,6 @@ pub enum GateError {
     UnsupportedInvocation = 4004,
     /// Nenhum signer autenticado.
     NoSigners = 4005,
-}
-
-/// Parâmetros de instalação, por context rule.
-#[contracttype]
-#[derive(Clone)]
-pub struct GateParams {
-    /// Funções que este agente pode invocar. `["transfer"]` para o trader;
-    /// vazio para um agente somente-leitura.
-    pub allowed_fns: Vec<Symbol>,
-    /// Acima deste valor, a contraparte precisa de claim válido.
-    pub kyb_threshold: i128,
-    /// Identity registry consultado no `enforce`.
-    pub identity_registry: Address,
-    /// Tópico do claim exigido (ex.: KYB).
-    pub claim_topic: u32,
-    /// Rótulo do agente, para atribuir as estatísticas.
-    pub agent_label: Symbol,
-}
-
-/// Conduta acumulada do agente. Escrita apenas no caminho aprovado.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AgentStats {
-    pub ops_ok: u32,
-    pub volume_total: i128,
-    /// Volume movido para contrapartes verificadas — o número que a UI destaca,
-    /// porque é o caro de inflar.
-    pub volume_attested: i128,
-    pub first_seen: u64,
 }
 
 #[contractevent]
@@ -184,13 +157,7 @@ impl Policy for ComplianceGate {
         }
         e.storage().persistent().set(&key, &install_params);
 
-        let stats = AgentStats {
-            ops_ok: 0,
-            volume_total: 0,
-            volume_attested: 0,
-            first_seen: e.ledger().timestamp(),
-        };
-        save_stats(e, &smart_account, context_rule.id, &stats);
+        save_stats(e, &smart_account, context_rule.id, &AgentStats::new(e));
     }
 
     fn uninstall(e: &Env, context_rule: ContextRule, smart_account: Address) {
@@ -256,12 +223,7 @@ fn load_params(e: &Env, smart_account: &Address, rule_id: u32) -> GateParams {
 
 fn load_stats(e: &Env, smart_account: &Address, rule_id: u32) -> AgentStats {
     let key = GateStorageKey::Stats(smart_account.clone(), rule_id);
-    e.storage().persistent().get(&key).unwrap_or(AgentStats {
-        ops_ok: 0,
-        volume_total: 0,
-        volume_attested: 0,
-        first_seen: e.ledger().timestamp(),
-    })
+    e.storage().persistent().get(&key).unwrap_or(AgentStats::new(e))
 }
 
 fn save_stats(e: &Env, smart_account: &Address, rule_id: u32, stats: &AgentStats) {

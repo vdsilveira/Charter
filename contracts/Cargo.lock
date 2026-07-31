@@ -286,6 +286,7 @@ dependencies = [
 name = "charter-account"
 version = "0.1.0"
 dependencies = [
+ "charter-types",
  "soroban-sdk",
  "stellar-accounts",
 ]
@@ -294,6 +295,7 @@ dependencies = [
 name = "charter-compliance-gate"
 version = "0.1.0"
 dependencies = [
+ "charter-types",
  "soroban-sdk",
  "stellar-accounts",
 ]
@@ -303,6 +305,23 @@ name = "charter-kyb-policy"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
+]
+
+[[package]]
+name = "charter-org-registry"
+version = "0.1.0"
+dependencies = [
+ "charter-types",
+ "soroban-sdk",
+ "stellar-accounts",
+]
+
+[[package]]
+name = "charter-types"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "stellar-accounts",
 ]
 
 [[package]]

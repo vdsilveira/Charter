@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["charter-account", "charter-compliance-gate", "charter-kyb-policy"]
+members = [
+    "charter-types",
+    "charter-account",
+    "charter-compliance-gate",
+    "charter-kyb-policy",
+    "charter-org-registry",
+]
 
 [workspace.package]
 edition = "2021"
@@ -13,6 +19,7 @@ soroban-sdk = "27.0.2"
 # o que conflita com o protocolo 27 da testnet e gera `duplicate lang item`.
 # O repo já está em 27.0.2 — usamos git com commit pinado, como faz o demo
 # confidencial. Não seguir a branch durante o evento.
+charter-types = { path = "charter-types" }
 stellar-accounts = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "9b5ed96f67aa28a8be73c538f7bfdef65925c6bc" }
 
 [profile.release]

@@ -68,7 +68,7 @@ integração. Sempre conferir a assinatura no fonte da OZ antes de escrever o mo
 
 ## Cobertura mínima por contrato
 
-### `ComplianceGate`
+### `ComplianceGate` — 15 testes ✅
 - [ ] `transfer` de função permitida, abaixo do limiar → passa
 - [ ] função fora da allow-list → `FunctionNotAllowed`
 - [ ] invocação que não é `transfer(from,to,amount)` → `UnsupportedInvocation`
@@ -82,29 +82,38 @@ integração. Sempre conferir a assinatura no fonte da OZ antes de escrever o mo
 - [ ] `install` duplicado → `AlreadyInstalled`
 - [ ] `enforce` sem `install` → `NotInstalled`
 
-### `KybPolicy`
+### `KybPolicy` — 6 testes ✅
 - [ ] conta verificada → `is_authorized == true`
 - [ ] conta não verificada → `is_authorized == false` (**não** panica: o token confidencial espera booleano)
 - [ ] claim revogado → `false` na chamada seguinte
 - [ ] registry inacessível → `false` (fail-closed)
 
-### `OrgRegistry`
-- [ ] `create_org` cria conta e resolve os labels dos agentes
-- [ ] nome de organização duplicado → `NameTaken`
-- [ ] `resolve` de agente revogado → falha (nunca devolve endereço obsoleto)
-- [ ] apenas o fundador revoga agente da própria org → caso contrário `NotFounder`
-- [ ] `credentials_of` devolve limites, escopo, validade e status de verificação
-- [ ] `credentials_of` de agente inexistente → `AgentNotFound`
+### `OrgRegistry` — 10 testes ✅
+- [x] `create_org` cria conta e resolve os labels dos agentes
+- [x] nome de organização duplicado → `NameTaken`
+- [x] constituição sem agentes → `NoAgents`
+- [x] `resolve` de agente revogado → `AgentRevoked` (nunca devolve endereço obsoleto)
+- [x] agente revogado ainda aparece em `credentials_of` como inativo — a
+      contraparte precisa distinguir "revogado" de "nunca existiu"
+- [x] `credentials_of` agrega escopo, conduta e verificação em uma leitura
+- [x] `credentials_of` reporta organização não verificada, em vez de falhar
+- [x] o segundo agente mapeia para a segunda context rule (a ordem liga rótulo
+      a procuração; se ela se perder, devolve-se a procuração do agente errado)
+- [x] organização/agente inexistente → `OrgNotFound` / `AgentNotFound`
 
-### `CharterAccount`
-- [ ] regra criada como `CallContract`, não `Default`
-- [ ] `valid_until` no passado → invocação recusada
-- [ ] policy instalada aparece na regra
+### `CharterAccount` — 4 testes ✅
+- [x] uma `ContextRule` por agente, do tipo `CallContract(target)`
+- [x] os `context_rule_id` seguem a ordem de `agents`
+- [x] `valid_until` preservado
+- [x] conta sem agentes → `NoAgents`
 
 ## Comandos
 
 ```bash
 cd contracts
+stellar contract build         # OBRIGATÓRIO antes dos testes do org-registry:
+                               # create_org faz deploy por hash de wasm, e o
+                               # teste carrega charter_account.wasm do target
 cargo test                     # toda a suíte
 cargo test -p charter-compliance-gate
 cargo test -- --nocapture      # com saída de debug
