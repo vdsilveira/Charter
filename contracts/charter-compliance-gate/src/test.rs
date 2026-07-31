@@ -13,6 +13,12 @@ use crate::*;
 // ---------------------------------------------------------------------------
 // Harness
 // ---------------------------------------------------------------------------
+//
+// `install` e `enforce` chamam `require_auth` sobre a mesma smart account. Numa
+// única frame de teste isso produz `Error(Auth, ExistingValue)` — "frame is
+// already authorized". Em produção não acontece, porque são transações
+// distintas. Por isso cada operação roda no seu próprio `as_contract`, que é o
+// mesmo padrão dos testes da OpenZeppelin.
 
 #[contract]
 struct MockContract;
@@ -39,6 +45,28 @@ impl MockIdentityRegistry {
     }
 }
 
+struct Fixture {
+    e: Env,
+    host: Address,
+    registry: Address,
+    token: Address,
+    sa: Address,
+}
+
+fn setup() -> Fixture {
+    let e = Env::default();
+    e.mock_all_auths();
+    let host = e.register(MockContract, ());
+    let registry = e.register(MockIdentityRegistry, ());
+    let token = Address::generate(&e);
+    let sa = Address::generate(&e);
+    Fixture { e, host, registry, token, sa }
+}
+
+fn set_verified(f: &Fixture, who: &Address, verified: bool) {
+    MockIdentityRegistryClient::new(&f.e, &f.registry).set_verified(who, &verified);
+}
+
 fn transfer_ctx(e: &Env, token: &Address, to: &Address, amount: i128) -> Context {
     let mut args = Vec::new(e);
     args.push_back(Address::generate(e).into_val(e)); // from
@@ -53,11 +81,7 @@ fn transfer_ctx(e: &Env, token: &Address, to: &Address, amount: i128) -> Context
 }
 
 fn other_fn_ctx(e: &Env, token: &Address, fn_name: Symbol) -> Context {
-    Context::Contract(ContractContext {
-        contract: token.clone(),
-        fn_name,
-        args: Vec::new(e),
-    })
+    Context::Contract(ContractContext { contract: token.clone(), fn_name, args: Vec::new(e) })
 }
 
 fn rule(e: &Env, token: &Address) -> ContextRule {
@@ -99,24 +123,29 @@ fn params(e: &Env, registry: &Address, threshold: i128, fns: &[Symbol]) -> GateP
     }
 }
 
-struct Fixture {
-    e: Env,
-    host: Address,
-    registry: Address,
-    token: Address,
+/// Instala a policy com o escopo e o limiar dados. Devolve a context rule.
+fn install(f: &Fixture, threshold: i128, fns: &[Symbol]) -> ContextRule {
+    let r = f.e.as_contract(&f.host, || {
+        let r = rule(&f.e, &f.token);
+        ComplianceGate::install(
+            &f.e,
+            params(&f.e, &f.registry, threshold, fns),
+            r.clone(),
+            f.sa.clone(),
+        );
+        r
+    });
+    r
 }
 
-fn setup() -> Fixture {
-    let e = Env::default();
-    e.mock_all_auths();
-    let host = e.register(MockContract, ());
-    let registry = e.register(MockIdentityRegistry, ());
-    let token = Address::generate(&e);
-    Fixture { e, host, registry, token }
+fn enforce(f: &Fixture, r: &ContextRule, ctx: Context, sgn: Vec<Signer>) {
+    f.e.as_contract(&f.host, || {
+        ComplianceGate::enforce(&f.e, ctx, sgn, r.clone(), f.sa.clone());
+    });
 }
 
-fn set_verified(f: &Fixture, who: &Address, verified: bool) {
-    MockIdentityRegistryClient::new(&f.e, &f.registry).set_verified(who, &verified);
+fn stats(f: &Fixture, r: &ContextRule) -> AgentStats {
+    f.e.as_contract(&f.host, || ComplianceGate::get_stats(&f.e, r.id, f.sa.clone()))
 }
 
 // ---------------------------------------------------------------------------
@@ -126,45 +155,29 @@ fn set_verified(f: &Fixture, who: &Address, verified: bool) {
 #[test]
 fn install_stores_params() {
     let f = setup();
-    let sa = Address::generate(&f.e);
+    let r = install(&f, 500, &[symbol_short!("transfer")]);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        let p = params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]);
-        ComplianceGate::install(&f.e, p.clone(), r.clone(), sa.clone());
-
-        let stored = ComplianceGate::get_params(&f.e, r.id, sa.clone());
-        assert_eq!(stored.kyb_threshold, 500);
-        assert_eq!(stored.allowed_fns.len(), 1);
-    });
+    let stored = f.e.as_contract(&f.host, || ComplianceGate::get_params(&f.e, r.id, f.sa.clone()));
+    assert_eq!(stored.kyb_threshold, 500);
+    assert_eq!(stored.allowed_fns.len(), 1);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #4001)")]
 fn install_twice_fails() {
     let f = setup();
-    let sa = Address::generate(&f.e);
-
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        let p = params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]);
-        ComplianceGate::install(&f.e, p.clone(), r.clone(), sa.clone());
-        ComplianceGate::install(&f.e, p, r, sa);
-    });
+    install(&f, 500, &[symbol_short!("transfer")]);
+    install(&f, 500, &[symbol_short!("transfer")]);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #4000)")]
 fn enforce_without_install_fails() {
     let f = setup();
-    let sa = Address::generate(&f.e);
+    let r = f.e.as_contract(&f.host, || rule(&f.e, &f.token));
+    let to = Address::generate(&f.e);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        let to = Address::generate(&f.e);
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 10);
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r, sa);
-    });
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 10), signers(&f.e));
 }
 
 // ---------------------------------------------------------------------------
@@ -174,86 +187,47 @@ fn enforce_without_install_fails() {
 #[test]
 fn transfer_within_scope_and_below_threshold_passes() {
     let f = setup();
-    let sa = Address::generate(&f.e);
     let to = Address::generate(&f.e);
+    let r = install(&f, 500, &[symbol_short!("transfer")]);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        ComplianceGate::install(
-            &f.e,
-            params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]),
-            r.clone(),
-            sa.clone(),
-        );
+    // 100 < 500: não exige claim da contraparte.
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 100), signers(&f.e));
 
-        // 100 < 500: não exige claim da contraparte.
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 100);
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r.clone(), sa.clone());
-
-        let stats = ComplianceGate::get_stats(&f.e, r.id, sa);
-        assert_eq!(stats.ops_ok, 1);
-        assert_eq!(stats.volume_total, 100);
-    });
+    let s = stats(&f, &r);
+    assert_eq!(s.ops_ok, 1);
+    assert_eq!(s.volume_total, 100);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #4002)")]
 fn function_outside_allowlist_is_refused() {
     let f = setup();
-    let sa = Address::generate(&f.e);
+    // Agente auditor: escopo vazio, não pode transferir.
+    let r = install(&f, 500, &[]);
+    let to = Address::generate(&f.e);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        // Agente auditor: escopo vazio, não pode transferir.
-        ComplianceGate::install(&f.e, params(&f.e, &f.registry, 500, &[]), r.clone(), sa.clone());
-
-        let to = Address::generate(&f.e);
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 10);
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r, sa);
-    });
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 10), signers(&f.e));
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #4004)")]
 fn unknown_invocation_shape_is_refused() {
     let f = setup();
-    let sa = Address::generate(&f.e);
+    // `approve` está no escopo, mas não sabemos extrair valor dela:
+    // recusar é a única resposta segura.
+    let r = install(&f, 500, &[symbol_short!("approve")]);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        // `approve` está no escopo, mas não sabemos extrair valor dela:
-        // recusar é a única resposta segura.
-        ComplianceGate::install(
-            &f.e,
-            params(&f.e, &f.registry, 500, &[symbol_short!("approve")]),
-            r.clone(),
-            sa.clone(),
-        );
-
-        let ctx = other_fn_ctx(&f.e, &f.token, symbol_short!("approve"));
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r, sa);
-    });
+    enforce(&f, &r, other_fn_ctx(&f.e, &f.token, symbol_short!("approve")), signers(&f.e));
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #4005)")]
 fn empty_signer_set_is_refused() {
     let f = setup();
-    let sa = Address::generate(&f.e);
+    let r = install(&f, 500, &[symbol_short!("transfer")]);
+    let to = Address::generate(&f.e);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        ComplianceGate::install(
-            &f.e,
-            params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]),
-            r.clone(),
-            sa.clone(),
-        );
-
-        let to = Address::generate(&f.e);
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 10);
-        ComplianceGate::enforce(&f.e, ctx, Vec::new(&f.e), r, sa);
-    });
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 10), Vec::new(&f.e));
 }
 
 // ---------------------------------------------------------------------------
@@ -263,50 +237,28 @@ fn empty_signer_set_is_refused() {
 #[test]
 fn above_threshold_with_verified_counterparty_passes() {
     let f = setup();
-    let sa = Address::generate(&f.e);
     let to = Address::generate(&f.e);
     set_verified(&f, &to, true);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        ComplianceGate::install(
-            &f.e,
-            params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]),
-            r.clone(),
-            sa.clone(),
-        );
+    let r = install(&f, 500, &[symbol_short!("transfer")]);
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 600), signers(&f.e));
 
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 600);
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r.clone(), sa.clone());
-
-        let stats = ComplianceGate::get_stats(&f.e, r.id, sa);
-        assert_eq!(stats.ops_ok, 1);
-        assert_eq!(stats.volume_total, 600);
-        // Contraparte verificada: conta também no volume atestado.
-        assert_eq!(stats.volume_attested, 600);
-    });
+    let s = stats(&f, &r);
+    assert_eq!(s.ops_ok, 1);
+    assert_eq!(s.volume_total, 600);
+    // Contraparte verificada: conta também no volume atestado.
+    assert_eq!(s.volume_attested, 600);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #4003)")]
 fn above_threshold_with_unverified_counterparty_is_refused() {
     let f = setup();
-    let sa = Address::generate(&f.e);
     let to = Address::generate(&f.e);
     set_verified(&f, &to, false);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        ComplianceGate::install(
-            &f.e,
-            params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]),
-            r.clone(),
-            sa.clone(),
-        );
-
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 600);
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r, sa);
-    });
+    let r = install(&f, 500, &[symbol_short!("transfer")]);
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 600), signers(&f.e));
 }
 
 /// Fluxo F do SPEC: revogar o claim recusa a operação seguinte, sem migrar
@@ -315,59 +267,34 @@ fn above_threshold_with_unverified_counterparty_is_refused() {
 #[should_panic(expected = "Error(Contract, #4003)")]
 fn revoking_claim_refuses_next_operation() {
     let f = setup();
-    let sa = Address::generate(&f.e);
     let to = Address::generate(&f.e);
     set_verified(&f, &to, true);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        ComplianceGate::install(
-            &f.e,
-            params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]),
-            r.clone(),
-            sa.clone(),
-        );
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 600);
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r.clone(), sa.clone());
-    });
+    let r = install(&f, 500, &[symbol_short!("transfer")]);
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 600), signers(&f.e));
 
     // Compliance officer revoga.
     set_verified(&f, &to, false);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 600);
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r, sa);
-    });
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 600), signers(&f.e));
 }
 
 #[test]
 fn unverified_counterparty_below_threshold_still_passes() {
     let f = setup();
-    let sa = Address::generate(&f.e);
     let to = Address::generate(&f.e);
     set_verified(&f, &to, false);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        ComplianceGate::install(
-            &f.e,
-            params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]),
-            r.clone(),
-            sa.clone(),
-        );
+    let r = install(&f, 500, &[symbol_short!("transfer")]);
+    // Abaixo do limiar o claim não é exigido — micropagamento de agente não
+    // pode depender de KYB, senão a camada x402 morre.
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 100), signers(&f.e));
 
-        // Abaixo do limiar o claim não é exigido — micropagamento de agente
-        // não pode depender de KYB, senão a camada x402 morre.
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 100);
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r.clone(), sa.clone());
-
-        let stats = ComplianceGate::get_stats(&f.e, r.id, sa);
-        assert_eq!(stats.ops_ok, 1);
-        assert_eq!(stats.volume_total, 100);
-        // Não verificada: não entra no volume atestado.
-        assert_eq!(stats.volume_attested, 0);
-    });
+    let s = stats(&f, &r);
+    assert_eq!(s.ops_ok, 1);
+    assert_eq!(s.volume_total, 100);
+    // Não verificada: não entra no volume atestado.
+    assert_eq!(s.volume_attested, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -377,65 +304,32 @@ fn unverified_counterparty_below_threshold_still_passes() {
 #[test]
 fn approved_path_emits_policy_decision() {
     let f = setup();
-    let sa = Address::generate(&f.e);
     let to = Address::generate(&f.e);
+    let r = install(&f, 500, &[symbol_short!("transfer")]);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        ComplianceGate::install(
-            &f.e,
-            params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]),
-            r.clone(),
-            sa.clone(),
-        );
-        let before = f.e.events().all().events().len();
+    let before = f.e.events().all().events().len();
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 100), signers(&f.e));
 
-        let ctx = transfer_ctx(&f.e, &f.token, &to, 100);
-        ComplianceGate::enforce(&f.e, ctx, signers(&f.e), r, sa);
-
-        assert!(f.e.events().all().events().len() > before, "PolicyDecision não foi emitido");
-    });
+    assert!(f.e.events().all().events().len() > before, "PolicyDecision não foi emitido");
 }
 
 #[test]
 fn stats_accumulate_across_operations() {
     let f = setup();
-    let sa = Address::generate(&f.e);
     let verified = Address::generate(&f.e);
     let plain = Address::generate(&f.e);
     set_verified(&f, &verified, true);
     set_verified(&f, &plain, false);
 
-    f.e.as_contract(&f.host, || {
-        let r = rule(&f.e, &f.token);
-        ComplianceGate::install(
-            &f.e,
-            params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]),
-            r.clone(),
-            sa.clone(),
-        );
+    let r = install(&f, 500, &[symbol_short!("transfer")]);
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &plain, 100), signers(&f.e));
+    enforce(&f, &r, transfer_ctx(&f.e, &f.token, &verified, 900), signers(&f.e));
 
-        ComplianceGate::enforce(
-            &f.e,
-            transfer_ctx(&f.e, &f.token, &plain, 100),
-            signers(&f.e),
-            r.clone(),
-            sa.clone(),
-        );
-        ComplianceGate::enforce(
-            &f.e,
-            transfer_ctx(&f.e, &f.token, &verified, 900),
-            signers(&f.e),
-            r.clone(),
-            sa.clone(),
-        );
-
-        let stats = ComplianceGate::get_stats(&f.e, r.id, sa);
-        assert_eq!(stats.ops_ok, 2);
-        assert_eq!(stats.volume_total, 1000);
-        // Só o segundo pagamento foi para contraparte verificada.
-        assert_eq!(stats.volume_attested, 900);
-    });
+    let s = stats(&f, &r);
+    assert_eq!(s.ops_ok, 2);
+    assert_eq!(s.volume_total, 1000);
+    // Só o segundo pagamento foi para contraparte verificada.
+    assert_eq!(s.volume_attested, 900);
 }
 
 // ---------------------------------------------------------------------------

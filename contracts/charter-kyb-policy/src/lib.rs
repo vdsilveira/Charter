@@ -49,18 +49,30 @@ pub struct KybPolicy;
 
 #[contractimpl]
 impl KybPolicy {
-    pub fn __constructor(_e: &Env, _identity_registry: Address, _claim_topic: u32) {
-        todo!("fase 4")
+    pub fn __constructor(e: &Env, identity_registry: Address, claim_topic: u32) {
+        e.storage().instance().set(&KybStorageKey::Registry, &identity_registry);
+        e.storage().instance().set(&KybStorageKey::ClaimTopic, &claim_topic);
     }
 
     /// Chamado pelo token confidencial em toda operação, para cada conta
     /// nomeada. **Nunca panica** — o token espera um booleano.
-    pub fn is_authorized(_e: &Env, _account: Address, _token: Address) -> bool {
-        todo!("fase 4")
+    ///
+    /// O `_token` faz parte da interface esperada pelo token confidencial e
+    /// permite, no futuro, políticas distintas por ativo. Hoje o gate é o
+    /// mesmo para todos.
+    pub fn is_authorized(e: &Env, account: Address, _token: Address) -> bool {
+        let Some(registry) = e.storage().instance().get::<_, Address>(&KybStorageKey::Registry)
+        else {
+            // Sem registry configurado não há como verificar — e o que não se
+            // verifica, não se autoriza.
+            return false;
+        };
+
+        IdentityVerifierClient::new(e, &registry).try_verify_identity(&account).is_ok()
     }
 
-    pub fn identity_registry(_e: &Env) -> Address {
-        todo!("fase 4")
+    pub fn identity_registry(e: &Env) -> Address {
+        e.storage().instance().get(&KybStorageKey::Registry).unwrap()
     }
 }
 
