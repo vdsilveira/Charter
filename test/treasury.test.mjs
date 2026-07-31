@@ -12,8 +12,7 @@
  * em vez de sumirem da suíte.
  */
 import { strict as assert } from "node:assert";
-import { before, describe, it } from "node:test";
-import { execFileSync } from "node:child_process";
+import { after, before, describe, it } from "node:test";
 import { createHash } from "node:crypto";
 import { Keypair, Networks } from "@stellar/stellar-sdk";
 import {
@@ -26,10 +25,33 @@ import { addr, deployments, eventsOf, hasError, i128, invoke, read, secretOf } f
 const TOKEN = process.env.GATED_TOKEN ?? deployments.charter?.gatedConfidentialToken;
 const PASS = Networks.TESTNET;
 const AUDITOR_ID = 0;
-const SALARY = 7n; // valor distintivo: fácil de procurar no evento
+// Valor improvável de propósito: o evento carrega cifra como arrays de bytes, e
+// um número pequeno casaria com qualquer byte solto na hora de procurar o valor
+// em claro. 414243 não cabe em um byte.
+const SALARY = 414243n;
+
+/**
+ * Verdadeiro se algum campo **em claro** do evento é o valor pago.
+ *
+ * Bytes de cifra ficam de fora por definição: um `Buffer` aqui é ciphertext ou
+ * commitment, e procurar o valor dentro dele é procurar coincidência de byte,
+ * não vazamento. O que interessa é campo legível — número, bigint ou string.
+ */
+function leaksAmount(node, amount) {
+  if (node == null) return false;
+  if (Buffer.isBuffer(node) || node instanceof Uint8Array) return false;
+  if (typeof node === "bigint" || typeof node === "number") return BigInt(node) === amount;
+  if (typeof node === "string") return node === String(amount);
+  if (Array.isArray(node)) return node.some((n) => leaksAmount(n, amount));
+  if (typeof node === "object") return Object.values(node).some((n) => leaksAmount(n, amount));
+  return false;
+}
+
+const dumpOf = (v) => JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x));
+const topicsOf = (events) => events.map((e) => e.topics[0]).join(", ");
 
 describe("fase 5 — tesouraria confidencial", { concurrency: 1 }, () => {
-  let treasury, vendor, stranger, client, addrF;
+  let treasury, vendor, stranger, client, addrF, prover;
 
   before(() => {
     assert.ok(TOKEN, "GATED_TOKEN não configurado");
@@ -66,6 +88,11 @@ describe("fase 5 — tesouraria confidencial", { concurrency: 1 }, () => {
     vendor = party("fornecedor");
     stranger = { kp: Keypair.fromSecret(secretOf("stranger")) };
   });
+
+  // O backend do UltraHonk sobe worker threads que seguram o event loop: sem
+  // este destroy o processo fica pendurado depois do último teste e o runner
+  // acusa "Promise resolution is still pending".
+  after(async () => { await prover?.destroy(); });
 
   it("a tesouraria deposita no espaço confidencial", async () => {
     const r = await invoke(
@@ -117,7 +144,7 @@ describe("fase 5 — tesouraria confidencial", { concurrency: 1 }, () => {
       kAudR: kAud,
       kAudS: kAud,
     });
-    const prover = new CircuitProver(loadCircuit("transfer"));
+    prover = new CircuitProver(loadCircuit("transfer"));
     const { proof } = await prover.prove(w.inputs);
     const tx = await submitTransfer(
       client, treasury.signer, treasury.kp.publicKey(), vendor.kp.publicKey(), w, proof,
@@ -126,10 +153,11 @@ describe("fase 5 — tesouraria confidencial", { concurrency: 1 }, () => {
     // O valor não pode aparecer em claro no evento: é a diferença entre
     // confidencialidade e teatro.
     const events = await eventsOf(tx.hash);
-    const dump = JSON.stringify(events, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
+    const transfer = events.filter((e) => e.contract === TOKEN && e.topics[0] === "transfer");
+    assert.equal(transfer.length, 1, `esperava um evento transfer do token: ${topicsOf(events)}`);
     assert.ok(
-      !dump.includes(`"${SALARY}"`) && !dump.includes(`:${SALARY},`),
-      `o valor ${SALARY} apareceu em claro no evento: ${dump.slice(0, 400)}`,
+      !leaksAmount(transfer, SALARY),
+      `o valor ${SALARY} apareceu em claro no evento: ${dumpOf(transfer).slice(0, 400)}`,
     );
 
     // …mas o destinatário recupera com a própria chave de visão.

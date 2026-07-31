@@ -15,34 +15,22 @@ reconstruir contexto. `SPEC.md` diz o que construir, `PRD.md` por quê,
 | 2 · identidade RWA + `OrgRegistry` | ✅ | 10 testes; stack ERC-3643 no ar |
 | 3 · x402 | ⚠️ **parcial** | policy provada on-chain; falta chave externa (§Bloqueios) |
 | 4 · gate confidencial | ✅ | `NotAuthorizedByPolicy (3602)` na testnet |
-| 5 · tesouraria confidencial | ⚠️ **quase** | payroll funciona; 1 teste falhando (§Próximo passo) |
+| 5 · tesouraria confidencial | ✅ | 6 testes verdes + 3 skip justificados (`set_spender`) |
 | 6 · ativo permissionado `ALPHA` | ⬜ iniciada | wasm construídos, nada implantado |
 | 7 · auditoria e disclosure | ⬜ | 6 casos escritos, todos vermelhos |
 | 8 · console e credencial | ⬜ | 7 casos escritos, todos vermelhos |
 
 **Contratos: 35 testes Rust verdes.** `cd contracts && stellar contract build && cargo test`
 
-**Integração: 29 casos escritos**, 4 verdes na fase 5 + 1 falhando + 3 skip justificados.
+**Integração: 29 casos escritos**, 6 verdes na fase 5 + 3 skip justificados. Fases
+6–8 seguem vermelhas por serem trabalho não feito, não por defeito.
 
 ---
 
 ## Próximo passo imediato
 
-O teste `paga o fornecedor sem revelar o valor na rede`
-(`test/treasury.test.mjs`) falha. A operação em si **funciona** —
-`node scripts/payroll-demo.mjs` paga 400 com valor oculto, o fornecedor decifra
-e os saldos batem. O que falha é a asserção.
-
-Suspeita principal: `SALARY = 7n` é um valor ruim para procurar dentro do JSON
-do evento — um dígito isolado casa com qualquer coisa (índices, topics,
-fragmentos de hash), então o teste acusa "valor em claro" onde não há. Trocar
-por um valor improvável (`414243n`) e, se persistir, verificar se `eventsOf()`
-em `test/helpers.mjs` está decodificando o meta corretamente — essa função foi
-escrita mas nunca validada isoladamente.
-
-```bash
-node --test --test-timeout 300000 test/treasury.test.mjs
-```
+**Fase 6 — ativo permissionado `ALPHA`** (§ no fim deste arquivo). É o marco da
+submissão Enterprise e o único que falta para fechar os fluxos E, F e G.
 
 ---
 
@@ -99,6 +87,14 @@ Estão nos comentários do código, repetidos aqui porque economizam horas:
   o payload do host.
 - **Proving repetido no mesmo processo trava.** Uma execução ficou 900s sem
   saída. Onde `deposit`/`merge` provam a mesma coisa, usar eles.
+- **Evento de transação não sai mais do meta.** No protocolo 23+ o meta é
+  `TransactionMetaV4` e `meta.v3()` levanta `v3 not set` — era isto que derrubava
+  o teste da folha, não a asserção. Os eventos vêm em `tx.events.contractEventsXdr`
+  (uma lista por operação), e `contractId()` ali é hash cru: `StrKey.encodeContract`,
+  não `Address.fromScAddress`.
+- **`CircuitProver` precisa de `destroy()`.** Os worker threads do UltraHonk
+  seguram o event loop; sem isso a suíte da fase 5 levava 274s e terminava com
+  "Promise resolution is still pending". Com `after()` destruindo, 23s.
 
 ---
 

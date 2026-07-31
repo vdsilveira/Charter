@@ -9,7 +9,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import {
-  Address, Keypair, Networks, Operation, TransactionBuilder, nativeToScVal, rpc,
+  Address, Keypair, Networks, Operation, StrKey, TransactionBuilder, nativeToScVal, rpc,
   scValToNative, xdr,
 } from "@stellar/stellar-sdk";
 
@@ -115,13 +115,26 @@ export function hasError(result, code) {
     String(result?.error ?? "").includes(`Error(Contract, #${code})`);
 }
 
-/** Eventos de uma transação, decodificados. */
+/**
+ * Eventos de contrato de uma transação, decodificados.
+ *
+ * A partir do protocolo 23 o meta é `TransactionMetaV4`, que **não** tem
+ * `sorobanMeta().events()` — ler por ali levanta `v3 not set`. A RPC passou a
+ * devolver os eventos em campo próprio (`events.contractEventsXdr`, uma lista
+ * por operação); o caminho pelo meta fica só para metas antigas.
+ *
+ * Lança se não houver evento nenhum: um teste de confidencialidade que recebe
+ * lista vazia passaria sem verificar nada, que é pior do que falhar.
+ */
 export async function eventsOf(hash) {
   const tx = await server.getTransaction(hash);
-  const meta = tx.resultMetaXdr;
-  const events = meta?.v3?.()?.sorobanMeta?.()?.events?.() ?? [];
-  return events.map((e) => ({
-    contract: Address.fromScAddress(e.contractId()).toString?.() ?? null,
+  const raw = tx.events?.contractEventsXdr?.flat() ?? legacyMetaEvents(tx.resultMetaXdr);
+  if (!raw.length) throw new Error(`tx ${hash} não trouxe eventos de contrato`);
+
+  return raw.map((e) => ({
+    contract: (() => {
+      try { return StrKey.encodeContract(e.contractId()); } catch { return null; }
+    })(),
     topics: e.body().v0().topics().map((t) => {
       try { return scValToNative(t); } catch { return "?"; }
     }),
@@ -129,6 +142,15 @@ export async function eventsOf(hash) {
       try { return scValToNative(e.body().v0().data()); } catch { return "?"; }
     })(),
   }));
+}
+
+/** Eventos de meta `TransactionMetaV3` — anterior ao protocolo 23. */
+function legacyMetaEvents(meta) {
+  try {
+    return meta?.v3()?.sorobanMeta()?.events() ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export { xdr, Address, Keypair };
