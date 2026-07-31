@@ -28,8 +28,8 @@
     "protocol": 27
   },
   "charter": {
-    "kybPolicy": "CAQS3U2DZQ4UWXSFK63OGXCQ3YNIHSE33WJTQTA4D7GUMUVSNGY3UUMD",
-    "gatedConfidentialToken": "CARHAA54RERBYMVJRAWVN6ZD4KAX2OESVWX7ULRUNRMWETUOXFN434UM",
+    "kybPolicy": "CD7GYHK7N2TGTHRTD6LFG6CVUQ6327PRXRV5UOUENKYB7UPOKWHMLCA4",
+    "gatedConfidentialToken": "CCLGAA6LDRQLJPSDSLRA6DI6X2PZWEBAP7CDY3RK3GSGMHPIAJTMW4Y3",
     "accountWasmHash": "18408b129ab94a5a3b739b13f5bed98662740076d6920ad6aa46b80f9f7f5412",
     "note": "gatedConfidentialToken = token_with_compliance da OZ com ComplianceConfig.policy = kybPolicy. Conferir a config apos qualquer redeploy: o CLI grava None em Option<Address> sem avisar."
   }

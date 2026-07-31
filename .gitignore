@@ -29,3 +29,7 @@ secrets/
 # Snapshots gerados pelos testes do soroban-sdk
 **/test_snapshots/
 
+
+# Chave do claim issuer (mock de testnet) — necessária para emitir novos claims
+.env.identity
+.env.demo

@@ -110,6 +110,11 @@ VERIFIER=$(stellar contract deploy --alias identity-verifier --wasm "$WASM/rwa_i
   --identity_registry_storage "$REG" --claim_topics_and_issuers "$CTI" 2>&1 | tail -1)
 echo "  $VERIFIER"
 
+# A chave do issuer não vai para o JSON versionado, mas precisa sobreviver à
+# execução: sem ela, emitir um claim novo exige subir uma stack inteira.
+printf 'ISSUER_SK=%s\n' "$ISSUER_SK" > "$ROOT/.env.identity"
+echo "  chave do issuer salva em .env.identity (não versionada)"
+
 cat > "$OUT" <<JSON
 {
   "network": "testnet",
