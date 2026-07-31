@@ -43,6 +43,8 @@ export async function freshAccount() {
 
 export const i128 = (v) => nativeToScVal(v, { type: "i128" });
 export const addr = (a) => new Address(a).toScVal();
+export const bool = (v) => xdr.ScVal.scvBool(v);
+export const u32 = (v) => xdr.ScVal.scvU32(v);
 
 /**
  * Invoca uma função de contrato. Nunca lança: devolve `{ ok, hash }` ou
