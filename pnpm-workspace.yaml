@@ -1,0 +1,13 @@
+packages:
+  - "vendor/*"
+
+allowBuilds:
+  esbuild: set this to true or false
+  msgpackr-extract: set this to true or false
+
+# pnpm ≥10 lê esta configuração daqui, não do package.json.
+onlyBuiltDependencies:
+  - esbuild
+  - msgpackr-extract
+  - sharp
+  - workerd

@@ -367,6 +367,7 @@ cenários C, D, F e G.
 | Perda do *opening* `(v, r)` do lado cliente torna fundos não gastáveis | É estado do cliente: persistir e re-derivar pelo caminho de recuperação do SDK; nunca limpar storage do browser durante a demo |
 | API da OZ accounts custar mais que escrever à mão | Spike na fase 0, com critério de decisão explícito |
 | Facilitador x402 de testnet instável | Fallback MPP Charge / cobrança SAC direta; é critério da trilha, então não pode ser cortado |
+| **Deploy que sobe sem gate, em silêncio** | O `stellar` CLI aceitou `--policy` e `--policy-file-path` para um `Option<Address>` e gravou **None**, sem erro: o token confidencial subiu sem compliance e só se percebeu quando uma conta sem claim conseguiu registrar. **Todo deploy com parâmetro opcional confere a configuração depois de subir** — `scripts/deploy-gated-token.mjs` faz isso e sai com erro se a policy não estiver lá |
 | Archival de storage (TTL) na demo | `extend_ttl` em toda escrita; rodar o bootstrap no dia |
 | Testnet resetada | Script de bootstrap refaz tudo em um comando |
 | Demo ao vivo travar | Vídeo gravado na fase 9 |

@@ -12,7 +12,7 @@
     "blocklist": "CDQTQRMPUSXBRUSUQGOPUUXNV2WACWBV37HQMPRDUPNFW7I23Z5EPYFQ",
     "factory": "CCECHCYHZA4Q2KX6YFPW7CAD525TTIXXNUUOH54NFJWFRABEDOL3USI2",
     "underlying": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
-    "underlyingNote": "SAC nativo (XLM). Lastro da tesouraria confidencial — ver PRD §14.",
+    "underlyingNote": "SAC nativo (XLM). Lastro da tesouraria confidencial \u2014 ver PRD \u00a714.",
     "source": "reference/confidential-demo (deployments/testnet.json)"
   },
   "accounts": {
@@ -26,5 +26,11 @@
     "sorobanSdk": "27.0.2",
     "stellarCli": "27.1.0",
     "protocol": 27
+  },
+  "charter": {
+    "kybPolicy": "CAQS3U2DZQ4UWXSFK63OGXCQ3YNIHSE33WJTQTA4D7GUMUVSNGY3UUMD",
+    "gatedConfidentialToken": "CARHAA54RERBYMVJRAWVN6ZD4KAX2OESVWX7ULRUNRMWETUOXFN434UM",
+    "accountWasmHash": "18408b129ab94a5a3b739b13f5bed98662740076d6920ad6aa46b80f9f7f5412",
+    "note": "gatedConfidentialToken = token_with_compliance da OZ com ComplianceConfig.policy = kybPolicy. Conferir a config apos qualquer redeploy: o CLI grava None em Option<Address> sem avisar."
   }
 }

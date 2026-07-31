@@ -18,6 +18,7 @@ reference/
 .env
 .env.*
 !.env.example
+
 *.key
 secrets/
 
@@ -27,3 +28,4 @@ secrets/
 
 # Snapshots gerados pelos testes do soroban-sdk
 **/test_snapshots/
+
