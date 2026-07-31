@@ -24,3 +24,6 @@ secrets/
 # Sistema
 .DS_Store
 *.log
+
+# Snapshots gerados pelos testes do soroban-sdk
+**/test_snapshots/

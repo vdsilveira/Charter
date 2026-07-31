@@ -291,6 +291,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "charter-compliance-gate"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "stellar-accounts",
+]
+
+[[package]]
+name = "charter-kyb-policy"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"

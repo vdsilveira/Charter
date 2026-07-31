@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["charter-account"]
+members = ["charter-account", "charter-compliance-gate", "charter-kyb-policy"]
 
 [workspace.package]
 edition = "2021"
