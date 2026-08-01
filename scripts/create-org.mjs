@@ -38,9 +38,15 @@ const i128 = (v) => nativeToScVal(v, { type: "i128" });
 const addr = (a) => new Address(a).toScVal();
 
 const agentKey = (alias) => {
-  execFileSync("stellar", ["keys", "generate", alias, "--network", "testnet", "--fund"], {
-    stdio: "ignore",
-  });
+  // Reaproveita a carteira se o alias já existir: reconstituir a organização
+  // não deve invalidar as chaves dos agentes.
+  try {
+    execFileSync("stellar", ["keys", "generate", alias, "--network", "testnet", "--fund"], {
+      stdio: "ignore",
+    });
+  } catch {
+    /* alias já existe */
+  }
   return Keypair.fromSecret(
     execFileSync("stellar", ["keys", "show", alias], { encoding: "utf8" }).trim(),
   );

@@ -30,14 +30,19 @@
   "charter": {
     "kybPolicy": "CD7GYHK7N2TGTHRTD6LFG6CVUQ6327PRXRV5UOUENKYB7UPOKWHMLCA4",
     "gatedConfidentialToken": "CCLGAA6LDRQLJPSDSLRA6DI6X2PZWEBAP7CDY3RK3GSGMHPIAJTMW4Y3",
-    "accountWasmHash": "18408b129ab94a5a3b739b13f5bed98662740076d6920ad6aa46b80f9f7f5412",
+    "accountWasmHash": "678ecad271e28c51d4ddddfa1fcc45c330cce3268371dc82f2c82d3fee42f2b7",
     "note": "gatedConfidentialToken = token_with_compliance da OZ com ComplianceConfig.policy = kybPolicy. Conferir a config apos qualquer redeploy: o CLI grava None em Option<Address> sem avisar.",
     "alphaToken": "CA4ZBUWPINGEK37LNH73SRO2QHIVX6X7C33DVWG5B552EFWT3IKYSBWV",
     "alphaCompliance": "CC2OE5OERHIBMHIJZ6F4D7PU55CCVXNTWGDKGXEZYLKUBMBRA3RBK2V2",
     "alphaNote": "Cotas da AlphaFund (RWA/ERC-3643). Vinculado ao mesmo identityVerifier das demais camadas \u2014 bind_token feito no identity-registry e no compliance.",
-    "orgRegistry": "CD2WFJDEHZPSH4KEMYPXXAJCY5SQ5MDWSKNRDZ4TSQXXG56XVZSGEL6I",
-    "complianceGate": "CDPXJODDLI7K5H72XKXKYIDFB4BI6WXQMDZRUFZDPGPAZOUVJ5TSLL3C",
+    "orgRegistry": "CCQXTSJUS4NOIXEB6O74S2HAOKSQADCAD453QTHD3E72ROQIMZNTAQ24",
+    "complianceGate": "CDM2KT6QJZGRNHUMQQ5TMHNEU6KJMADKKCXDFI7NPPXY6HNHV6JNH5VA",
     "org": "alphafund",
-    "orgAccount": "CC26I3KF3WWHIGQWIQH65HSOROOUW6XXG2FGTZFKAEWKYPGGHLI6OQR6"
+    "orgAccount": "CBICQWN4C5ZM4T62E6PQRQRCFOFH5RJBSV5GPXOAZT6454377W7VLA6A",
+    "treasury": "GAH3OUWE6OZOOLAXQLZZWEU2OAP666NZPRXR6ITJN5YUU7YAMH4UPW3G",
+    "constitutionFee": "50000000",
+    "feeNote": "5 XLM cobrados dentro do create_org, na mesma transacao. Fora dali qualquer um constituiria de graca.",
+    "traderContextRuleId": 1,
+    "ruleNote": "A regra 0 e do administrador (Delegated no fundador); os agentes comecam em 1."
   }
 }
