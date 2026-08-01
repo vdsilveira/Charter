@@ -10,6 +10,8 @@
 export interface FreighterApi {
   isConnected: () => Promise<{ isConnected: boolean }>;
   requestAccess?: () => Promise<{ address?: string; error?: string }>;
+  /** Endereço vazio significa: instalado, mas sem permissão para este site. */
+  getAddress?: () => Promise<{ address?: string; error?: string }>;
   getNetwork?: () => Promise<{ network?: string; networkPassphrase?: string; error?: string }>;
   signTransaction?: (
     xdr: string,

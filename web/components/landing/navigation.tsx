@@ -134,13 +134,12 @@ export function Navigation() {
           }`}
           style={{ transitionDelay: isMobileMenuOpen ? "300ms" : "0ms" }}
           >
-            <Button 
-              variant="outline" 
-              className="flex-1 rounded-full h-14 text-base"
-              onClick={() => setIsMobileMenuOpen(false)}
+            <EntrarNoApp
+              destino="/console"
+              className="flex-1 inline-flex items-center justify-center rounded-full border border-foreground/20 h-14 text-base disabled:opacity-50"
             >
-              Sign in
-            </Button>
+              Console
+            </EntrarNoApp>
             <EntrarNoApp
               destino="/constituir"
               className="flex-1 inline-flex items-center justify-center bg-foreground text-background rounded-full h-14 text-base font-medium disabled:opacity-50"

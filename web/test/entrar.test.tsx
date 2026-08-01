@@ -1,12 +1,15 @@
 /**
  * Entrada na aplicação a partir do site.
  *
- * Os CTAs do site levam a telas onde se assina — constituir uma organização,
- * operar o console. Mandar o visitante para lá sem carteira produz o pior
- * roteiro possível: ele preenche um formulário inteiro e só descobre no fim que
- * não tem como assinar.
+ * Os CTAs levam a telas onde se assina. Mandar o visitante para lá sem carteira
+ * produz o pior roteiro possível: ele preenche o formulário inteiro e só
+ * descobre no fim que não tem como assinar.
  *
- * A credencial pública segue fora disso: quem consulta um agente ainda não é
+ * Quando já há carteira autorizada, o clique navega direto — parar alguém que
+ * já está pronto é atrito à toa. Quando não há, a página escurece e uma caixa
+ * pede a conexão: o visitante vê o que está sendo pedido, e por quê.
+ *
+ * A credencial pública fica fora disso: quem consulta um agente ainda não é
  * cliente, e exigir carteira ali devolveria o problema que o produto resolve.
  */
 import { render, screen, waitFor } from "@testing-library/react";
@@ -16,67 +19,117 @@ import EntrarNoApp from "@/components/landing/entrar-no-app";
 
 const ENDERECO = "GBBH2YATAUUFYAYUGAHLKOA4LFFHASVU7SUADEE5PFON7T33URAUBZHJ";
 
-function api(over: Record<string, unknown> = {}) {
+/** Freighter instalado, porém ainda sem autorizar este site. */
+function apiNaoAutorizada(over: Record<string, unknown> = {}) {
   return {
     isConnected: async () => ({ isConnected: true }),
+    // Endereço vazio é como o Freighter diz "instalado, mas sem permissão".
+    getAddress: async () => ({ address: "" }),
     requestAccess: async () => ({ address: ENDERECO }),
     getNetwork: async () => ({ network: "TESTNET" }),
     ...over,
   };
 }
 
-describe("entrar na aplicação", () => {
-  it("conecta a carteira antes de navegar", async () => {
-    const user = userEvent.setup();
-    const navegar = vi.fn();
-    render(<EntrarNoApp destino="/constituir" api={api()} navegar={navegar}>Charter an org</EntrarNoApp>);
+/** Freighter já autorizado para este site. */
+function apiAutorizada(over: Record<string, unknown> = {}) {
+  return apiNaoAutorizada({ getAddress: async () => ({ address: ENDERECO }), ...over });
+}
 
-    await user.click(screen.getByRole("button", { name: /charter an org/i }));
+const clicarCta = (user: ReturnType<typeof userEvent.setup>, nome: RegExp) =>
+  user.click(screen.getByRole("button", { name: nome }));
 
-    await waitFor(() => expect(navegar).toHaveBeenCalledWith("/constituir"));
-  });
-
-  it("não navega quando o acesso é recusado na carteira", async () => {
+describe("entrada na aplicação", () => {
+  it("com carteira já autorizada, navega sem interromper", async () => {
     const user = userEvent.setup();
     const navegar = vi.fn();
     render(
-      <EntrarNoApp
-        destino="/console"
-        api={api({ requestAccess: async () => ({ error: "User declined access" }) })}
-        navegar={navegar}
-      >
+      <EntrarNoApp destino="/console" api={apiAutorizada()} navegar={navegar}>
         Console
       </EntrarNoApp>,
     );
 
-    await user.click(screen.getByRole("button", { name: /console/i }));
+    await clicarCta(user, /console/i);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/declin|recus/i);
+    await waitFor(() => expect(navegar).toHaveBeenCalledWith("/console"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("sem autorização, abre a caixa de conexão em vez de navegar", async () => {
+    const user = userEvent.setup();
+    const navegar = vi.fn();
+    render(
+      <EntrarNoApp destino="/constituir" api={apiNaoAutorizada()} navegar={navegar}>
+        Charter an org
+      </EntrarNoApp>,
+    );
+
+    await clicarCta(user, /charter an org/i);
+
+    const caixa = await screen.findByRole("dialog");
+    expect(caixa).toHaveTextContent(/connect/i);
     expect(navegar).not.toHaveBeenCalled();
   });
 
-  it("barra quando a carteira está na rede errada", async () => {
+  it("conecta pela caixa e então navega", async () => {
+    const user = userEvent.setup();
+    const navegar = vi.fn();
+    render(
+      <EntrarNoApp destino="/constituir" api={apiNaoAutorizada()} navegar={navegar}>
+        Charter an org
+      </EntrarNoApp>,
+    );
+
+    await clicarCta(user, /charter an org/i);
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: /connect freighter/i }));
+
+    await waitFor(() => expect(navegar).toHaveBeenCalledWith("/constituir"));
+  });
+
+  it("recusa na carteira mantém a caixa aberta com o motivo", async () => {
     const user = userEvent.setup();
     const navegar = vi.fn();
     render(
       <EntrarNoApp
         destino="/constituir"
-        api={api({ getNetwork: async () => ({ network: "PUBLIC" }) })}
+        api={apiNaoAutorizada({ requestAccess: async () => ({ error: "User declined access" }) })}
         navegar={navegar}
       >
         Charter an org
       </EntrarNoApp>,
     );
 
-    await user.click(screen.getByRole("button", { name: /charter an org/i }));
+    await clicarCta(user, /charter an org/i);
+    await user.click(await screen.findByRole("button", { name: /connect freighter/i }));
 
-    // Deixar passar levaria o visitante a assinar na mainnet uma operação de
-    // testnet — erro que só aparece depois, com dinheiro real do outro lado.
+    expect(await screen.findByRole("alert")).toHaveTextContent(/declin/i);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(navegar).not.toHaveBeenCalled();
+  });
+
+  it("rede errada barra antes de navegar", async () => {
+    const user = userEvent.setup();
+    const navegar = vi.fn();
+    render(
+      <EntrarNoApp
+        destino="/constituir"
+        api={apiNaoAutorizada({ getNetwork: async () => ({ network: "PUBLIC" }) })}
+        navegar={navegar}
+      >
+        Charter an org
+      </EntrarNoApp>,
+    );
+
+    await clicarCta(user, /charter an org/i);
+    await user.click(await screen.findByRole("button", { name: /connect freighter/i }));
+
+    // Deixar passar levaria alguém a assinar na mainnet uma operação de testnet.
     expect(await screen.findByRole("alert")).toHaveTextContent(/testnet/i);
     expect(navegar).not.toHaveBeenCalled();
   });
 
-  it("sem Freighter instalado, aponta para a instalação em vez de falhar", async () => {
+  it("sem Freighter, a caixa aponta para a instalação", async () => {
     const user = userEvent.setup();
     const navegar = vi.fn();
     render(
@@ -89,51 +142,43 @@ describe("entrar na aplicação", () => {
       </EntrarNoApp>,
     );
 
-    await user.click(screen.getByRole("button", { name: /charter an org/i }));
+    await clicarCta(user, /charter an org/i);
 
-    const aviso = await screen.findByRole("alert");
-    expect(aviso).toHaveTextContent(/freighter/i);
-    expect(aviso.querySelector("a")).toHaveAttribute("href", "https://freighter.app/");
+    const caixa = await screen.findByRole("dialog");
+    expect(caixa.querySelector('a[href="https://freighter.app/"]')).toBeTruthy();
     expect(navegar).not.toHaveBeenCalled();
   });
 
-  it("já conectado, vai direto na segunda vez", async () => {
+  it("dá para fechar a caixa e ficar no site", async () => {
     const user = userEvent.setup();
     const navegar = vi.fn();
-    const requestAccess = vi.fn(async () => ({ address: ENDERECO }));
     render(
-      <EntrarNoApp destino="/console" api={api({ requestAccess })} navegar={navegar}>
-        Console
+      <EntrarNoApp destino="/constituir" api={apiNaoAutorizada()} navegar={navegar}>
+        Charter an org
       </EntrarNoApp>,
     );
 
-    const botao = screen.getByRole("button", { name: /console/i });
-    await user.click(botao);
-    await waitFor(() => expect(navegar).toHaveBeenCalledTimes(1));
+    await clicarCta(user, /charter an org/i);
+    await screen.findByRole("dialog");
+    await user.keyboard("{Escape}");
 
-    await user.click(botao);
-    await waitFor(() => expect(navegar).toHaveBeenCalledTimes(2));
-    // Pedir acesso de novo a cada clique faria a carteira abrir um pop-up à toa.
-    expect(requestAccess).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(navegar).not.toHaveBeenCalled();
   });
 
-  it("avisa enquanto espera a carteira", async () => {
+  it("a caixa diz para onde se está indo e por que a carteira é necessária", async () => {
     const user = userEvent.setup();
-    let liberar: (v: unknown) => void = () => {};
     render(
-      <EntrarNoApp
-        destino="/console"
-        api={api({ requestAccess: () => new Promise((r) => (liberar = r)) })}
-        navegar={vi.fn()}
-      >
-        Console
+      <EntrarNoApp destino="/constituir" api={apiNaoAutorizada()} navegar={vi.fn()}>
+        Charter an org
       </EntrarNoApp>,
     );
 
-    const botao = screen.getByRole("button", { name: /console/i });
-    await user.click(botao);
+    await clicarCta(user, /charter an org/i);
+    const caixa = await screen.findByRole("dialog");
 
-    await waitFor(() => expect(botao).toBeDisabled());
-    liberar({ address: ENDERECO });
+    // Pedir carteira sem dizer para quê é o que faz gente fechar a aba.
+    expect(caixa).toHaveTextContent(/sign/i);
+    expect(caixa).toHaveTextContent(/testnet/i);
   });
 });
