@@ -11,15 +11,15 @@
  */
 import { readFileSync } from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
+import { aplicarEnv } from "@/lib/env-demo";
 import { constituirOrg, enviarPagamento, simularPagamento } from "@/lib/write";
 
 /** Chaves de demo não são versionadas: vivem em `.env.demo`. */
 function carregarEnv() {
-  const texto = readFileSync(new URL("../../.env.demo", import.meta.url), "utf8");
-  for (const linha of texto.split("\n")) {
-    const [k, ...resto] = linha.split("=");
-    if (k && resto.length) process.env[k.trim()] ??= resto.join("=").trim();
-  }
+  // Mesmo parser que o servidor usa em `instrumentation.ts`: se o teste lesse o
+  // arquivo de um jeito e a aplicação de outro, o teste deixaria de provar algo
+  // sobre a aplicação.
+  aplicarEnv(readFileSync(new URL("../../.env.demo", import.meta.url), "utf8"));
 }
 
 const dep = JSON.parse(

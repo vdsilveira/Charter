@@ -8,10 +8,38 @@
  * decide é idêntico nos dois casos.
  */
 import "server-only";
+import { readFileSync } from "fs";
+import { join } from "path";
 import {
   Address, Keypair, Networks, Operation, TransactionBuilder, nativeToScVal, rpc, scValToNative, xdr,
 } from "@stellar/stellar-sdk";
 import { createCharterSigner } from "./charter-signer";
+import { aplicarEnv } from "./env-demo";
+
+/**
+ * As chaves da demo vivem em `.env.demo` na raiz, fora de `web/` — e o Next só
+ * carrega `.env*` do próprio diretório. Sem isto, constituir pela interface
+ * falhava por variável ausente enquanto `node scripts/create-org.mjs`
+ * funcionava: a diferença era só quem lia o arquivo.
+ *
+ * Fica aqui, e não em `instrumentation.ts`, porque o Next empacota a
+ * instrumentação também para o edge — e ali `node:fs` não compila nem dentro de
+ * um `if`, derrubando o servidor inteiro. Este módulo é `server-only` e só
+ * roda no runtime Node, onde ler arquivo é trivial.
+ *
+ * `process.cwd()` em vez de `import.meta.url`: o bundler reescreve a segunda, e
+ * o caminho passaria a apontar para dentro de `.next/`.
+ */
+for (const caminho of [join(process.cwd(), "..", ".env.demo"), join(process.cwd(), ".env.demo")]) {
+  try {
+    // Ausência é normal: em container as chaves vêm do compose, e `aplicarEnv`
+    // nunca sobrescreve o que já está no ambiente.
+    aplicarEnv(readFileSync(caminho, "utf8"));
+    break;
+  } catch {
+    /* próximo candidato */
+  }
+}
 
 const RPC = process.env.STELLAR_RPC ?? "https://soroban-testnet.stellar.org";
 const PASS = Networks.TESTNET;
@@ -19,7 +47,13 @@ const server = new rpc.Server(RPC);
 
 const env = (k: string) => {
   const v = process.env[k];
-  if (!v) throw new Error(`variável de ambiente ausente: ${k}`);
+  // A instrução vai junto: quem vê isto está numa tela do app, e "missing
+  // environment variable" sozinho não diz onde a variável deveria estar.
+  if (!v) {
+    throw new Error(
+      `Missing environment variable ${k}. The demo keys live in .env.demo at the repository root — copy .env.example, fill it in, and restart the server.`,
+    );
+  }
   return v;
 };
 
