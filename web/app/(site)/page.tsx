@@ -1,5 +1,4 @@
 import { CtaSection } from "@/components/landing/cta-section";
-import { DevelopersSection } from "@/components/landing/developers-section";
 import { FeaturesSection } from "@/components/landing/features-section";
 import { FooterSection } from "@/components/landing/footer-section";
 import { HeroSection } from "@/components/landing/hero-section";
@@ -32,7 +31,6 @@ export default function Site() {
       <SecuritySection />
       <MetricsSection />
       <IntegrationsSection />
-      <DevelopersSection />
       <CtaSection />
       <FooterSection />
     </main>
