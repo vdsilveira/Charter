@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const words = ["aplica", "verifica", "revoga", "audita"];
+const words = ["organization", "treasury", "workforce", "operation"];
 
 function BlurWord({ word, trigger }: { word: string; trigger: number }) {
   const letters = word.split("");
@@ -107,9 +107,51 @@ function BlurWord({ word, trigger }: { word: string; trigger: number }) {
 export function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
   const [wordIndex, setWordIndex] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setIsVisible(true);
+  }, []);
+
+  // Este arquivo carrega uma faixa de áudio (8s, duas trilhas), e é isso que
+  // torna o autoplay frágil: navegador nenhum inicia sozinho um vídeo que pode
+  // fazer barulho, e o que sobra na tela é o primeiro quadro congelado — com
+  // cara de imagem estática. Silenciar via propriedade do elemento, e não só
+  // pelo atributo, e então pedir `play()` explicitamente resolve.
+  //
+  // O ideal seria remover a trilha de áudio do arquivo (`ffmpeg -an`), que
+  // dispensaria a política inteira e economizaria banda. Não há ffmpeg neste
+  // ambiente; fica anotado como melhoria de asset.
+  //
+  // Quem pede menos movimento no sistema continua com o quadro parado, de
+  // propósito: um laço de fundo é exatamente o que essa preferência recusa.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const tocar = () => void video.play().catch(() => {});
+    tocar();
+
+    // Se a política ainda barrar, o primeiro gesto do visitante destrava —
+    // e o ouvinte se remove sozinho depois de cumprir o papel.
+    const destravar = () => {
+      tocar();
+      window.removeEventListener("pointerdown", destravar);
+      window.removeEventListener("keydown", destravar);
+    };
+    window.addEventListener("pointerdown", destravar, { once: true });
+    window.addEventListener("keydown", destravar, { once: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", destravar);
+      window.removeEventListener("keydown", destravar);
+    };
   }, []);
 
   useEffect(() => {
@@ -124,10 +166,12 @@ export function HeroSection() {
       {/* Background video */}
       <div className="absolute inset-0 z-0">
         <video
+          ref={videoRef}
           autoPlay
           muted
           loop
           playsInline
+          preload="auto"
           aria-hidden="true"
           className="w-full h-full object-cover object-center opacity-80"
         >
@@ -174,7 +218,7 @@ export function HeroSection() {
         >
           <span className="inline-flex items-center gap-3 text-sm font-mono text-white/60">
             <span className="w-8 h-px bg-white/30" />
-            Registro de organizações agentificadas na Stellar
+            Agentic organizations on Stellar — with a power of attorney the network enforces
           </span>
         </div>
         
@@ -185,9 +229,9 @@ export function HeroSection() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <span className="block whitespace-nowrap">Procuração programável,</span>
+            <span className="block whitespace-nowrap">Build your</span>
             <span className="block whitespace-nowrap">
-              que a rede{" "}
+              agentic{" "}
               <span className="relative inline-block">
                 <BlurWord word={words[wordIndex]} trigger={wordIndex} />
               </span>
@@ -205,9 +249,9 @@ export function HeroSection() {
       >
         <div className="max-w-[1400px] mx-auto flex items-start gap-10 lg:gap-20">
           {[
-            { value: "3 camadas", label: "governadas por um registro de identidade" },
-            { value: "~5s", label: "da autorização à liquidação" },
-            { value: "US$ 0,00001", label: "de taxa por operação de agente" },
+            { value: "3 layers", label: "governed by one identity registry" },
+            { value: "~5s", label: "from authorization to settlement" },
+            { value: "$0.00001", label: "network fee per agent operation" },
           ].map((stat) => (
             <div key={stat.label} className="flex flex-col gap-2">
               <span className="text-3xl lg:text-4xl font-display text-white">{stat.value}</span>
