@@ -1,8 +1,9 @@
 # Estado do Charter — retomada
 
-Última sessão: 31/07/2026. Fases 0–8 do SPEC concluídas, mais o bloco de
-produto (taxa, gestão de agentes, carteira, Federation, Docker, layout). Falta
-**apenas o loop HTTP do x402**, travado em duas chaves externas.
+Última sessão: 01/08/2026. Fases 0–8 do SPEC concluídas, mais o bloco de
+produto (taxa, gestão de agentes, carteira, Federation, Docker) e o site
+público, adaptado de template com auditoria prévia. Falta **apenas o loop HTTP
+do x402**, travado em duas chaves externas.
 
 `SPEC.md` diz o que construir, `PRD.md` por quê, `TESTING.md` como testar, e
 este arquivo diz **onde paramos**.
@@ -27,15 +28,18 @@ este arquivo diz **onde paramos**.
 | Carteira Freighter | ✅ | rede validada antes de assinar |
 | Domínio e subdomínio (SEP-2) | ✅ | `trader*charter.local` resolve na rede |
 | Docker x402 | ✅ | compose com vendedor, agente e app |
-| Layout | ✅ | sistema visual próprio, claro e escuro |
+| Layout do app | ✅ | sistema visual próprio, claro e escuro |
+| Site público (`/`) | ✅ | landing em inglês; seção técnica carrega o pitch |
+| Porta de entrada com carteira | ✅ | caixa modal antes de qualquer rota do app |
+| Aplicação em inglês | ✅ | telas, formulários e mensagens de recusa |
 
-**Testes: 43 de contrato · 49 de componente · 10 de integração.**
+**Testes: 43 de contrato · 60 de componente · 10 contra a testnet.**
 
 ```bash
 cd contracts && stellar contract build && cargo test && cd ..   # 43
 pnpm test                                    # integração dos contratos
-pnpm --filter @charter/web test              # 49 de componente (mock, rápidos)
-pnpm --filter @charter/web test:write        # 10 contra a testnet
+pnpm --filter @charter/web test              # 60 de componente (mock, rápidos)
+pnpm --filter @charter/web test:write        # 10 contra a testnet (chain + write)
 ```
 
 Os skip declarados: 3 de `set_spender` (o SDK não tem witness builder) e 2 de
@@ -50,6 +54,9 @@ disclosure interativa (exige o fluxo da página `/verify`; a criptografia já te
 faltam as duas chaves externas (§Bloqueios). Depois: ensaiar a demo ponta a
 ponta e **gravar o vídeo**, que o SPEC trata como seguro contra a apresentação
 ao vivo falhar.
+
+Antes de gravar, resolver os dois itens de §Pendências de apresentação — o
+primeiro deles é visível em qualquer print da home.
 
 ---
 
@@ -176,6 +183,10 @@ Estão nos comentários do código; repetidos aqui porque economizam horas.
   "vai passar" é pior que nenhuma.
 - **`server-only` bloqueia o import nos testes** (e deve mesmo). Aliasado para
   um stub em `test/stubs/`, com `write.test.ts` rodando em ambiente node.
+- **Vídeo de fundo com trilha de áudio não dá autoplay.** O hero parecia
+  imagem estática: navegador bloqueia `autoplay` quando o MP4 tem faixa de
+  áudio, mesmo com `muted` no HTML. Corrigido com `video.muted = true`
+  imperativo e `play()` com catch; o certo é reencodar o asset (`ffmpeg -an`).
 - **`.env.demo` só aceita `CHAVE=valor` sem espaços.** Um append antigo gravou
   mensagem de erro do CLI como valor, o `source` quebrou no meio e variáveis
   ficaram de fora — o sintoma foi `Error(Auth, InvalidAction)` em vez de `4003`.
@@ -229,6 +240,44 @@ docker compose run --rm agente
 
 ---
 
+## Pendências de apresentação
+
+Nenhuma trava a demo; as duas primeiras aparecem na tela.
+
+1. **`metrics-section` anima números inventados** (12847392 / 99 / 340),
+   herdados do template. Numa página cujo argumento é verificabilidade, número
+   fabricado é o detalhe que um jurado nota. Ou vira leitura real da testnet
+   (`OrgRegistry` sabe quantas orgs e agentes existem), ou sai.
+2. **URLs em português na aplicação** — `/constituir`, `/o/[org]`, `/org/[org]`.
+   O texto todo está em inglês; a barra de endereço não. Renomear rota exige
+   ajustar os `destino` da landing e os links do `Chrome`; sem ganho funcional,
+   só de coerência.
+3. **`/painel` é órfã.** Era a home antes do site; hoje ninguém linka para ela.
+   Traduzida junto com o resto para não deixar português acessível, mas o certo
+   é apagar ou redirecionar para `/`.
+
+---
+
+## Como funciona a porta de entrada (mexeu duas vezes, vale registrar)
+
+Todo CTA do site que leva a uma tela de assinatura passa por
+`web/components/landing/entrar-no-app.tsx`. A credencial pública (`/o/…`) é a
+única saída deliberadamente livre: quem consulta um agente ainda não é cliente.
+
+**O que confundiu antes:** quando o Freighter já autorizou o site,
+`requestAccess()` devolve o endereço **sem abrir pop-up**. A navegação
+acontecia num piscar e parecia que não havia verificação nenhuma. A decisão
+atual é mostrar a caixa **sempre** — sem permissão ela pede conexão, com
+permissão ela confirma e exibe o endereço que vai assinar.
+
+A distinção entre "instalado" e "autorizado" vem de `getAddress`, que devolve
+endereço **vazio** enquanto o site não tem permissão. É o único jeito de
+descobrir isso sem abrir pop-up, e a barra do app (`conectar-carteira.tsx`) usa
+a mesma sonda ao montar — sem ela, quem acabou de autorizar via "Connect
+wallet" de novo no Console.
+
+---
+
 ## Dívidas conhecidas
 
 - **`charter-signer` existe em `.mjs` e `.ts`** — mesmo algoritmo, duas
@@ -240,3 +289,7 @@ docker compose run --rm agente
   assinado no browser. O componente de carteira já está pronto e testado.
 - **A stack de identidade tem issuer mock.** O registry é o trilho; o issuer
   real seria um anchor SEP ou provedor de KYB.
+- **Identificadores em português, interface em inglês.** Arquivos e variáveis
+  (`conectar-carteira.tsx`, `endereco`, `erro`) seguem a convenção do código;
+  só o texto de tela foi traduzido. Renomear seria churn sem ganho para quem
+  usa — mas é uma inconsistência que quem chegar ao repo vai notar.
