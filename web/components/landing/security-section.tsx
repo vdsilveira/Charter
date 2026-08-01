@@ -6,26 +6,26 @@ import { Shield, Lock, Eye, FileCheck } from "lucide-react";
 const securityFeatures = [
   {
     icon: Shield,
-    title: "Recusa antes do gasto",
-    description: "A interface simula a operação e mostra o motivo da recusa sem enviar transação.",
+    title: "Refusal before you spend",
+    description: "The interface simulates the operation and shows why it would be refused, without sending a transaction.",
     image: "/images/isolated.jpg",
   },
   {
     icon: Lock,
-    title: "Privacidade com porta de auditoria",
-    description: "Valores ocultos ao público, abertos ao auditor designado no registro.",
+    title: "Privacy with an audit door",
+    description: "Amounts hidden from the public, open to the auditor appointed in the registry.",
     image: "/images/encrypted.jpg",
   },
   {
     icon: Eye,
-    title: "Histórico que qualquer um confere",
-    description: "Cada decisão de política vira evento on-chain, reconstruível sem banco próprio.",
+    title: "A record anyone can check",
+    description: "Every policy decision becomes an on-chain event, rebuildable without a database of our own.",
     image: "/images/audit.jpg",
   },
   {
     icon: FileCheck,
-    title: "Menor privilégio por construção",
-    description: "Um agente sem escopo não move valor. O administrador governa, mas não gasta o tesouro.",
+    title: "Least privilege by construction",
+    description: "An agent with no scope moves nothing. The administrator governs the org, but cannot spend its treasury.",
     image: "/images/permissions.jpg",
   },
 ];

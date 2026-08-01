@@ -66,18 +66,18 @@ const logos: Record<string, React.ReactNode> = {
 };
 
 const integrations = [
-  { name: "OpenAI", category: "LLM" },
-  { name: "Anthropic", category: "LLM" },
-  { name: "Slack", category: "Comms" },
-  { name: "GitHub", category: "Code" },
-  { name: "Jira", category: "PM" },
-  { name: "AWS S3", category: "Storage" },
-  { name: "Google Drive", category: "Docs" },
-  { name: "Salesforce", category: "CRM" },
-  { name: "HubSpot", category: "Marketing" },
-  { name: "Zapier", category: "Auto" },
-  { name: "Snowflake", category: "Data" },
-  { name: "Stripe", category: "Payments" },
+  { name: "Soroban", category: "Contracts", mark: "SOR" },
+  { name: "OpenZeppelin", category: "Libraries", mark: "OZ" },
+  { name: "Smart accounts", category: "Authorization", mark: "SA" },
+  { name: "ERC-3643", category: "Identity", mark: "3643" },
+  { name: "Confidential tokens", category: "Privacy", mark: "ZK" },
+  { name: "UltraHonk", category: "Proofs", mark: "UH" },
+  { name: "x402", category: "Agent payments", mark: "402" },
+  { name: "SEP-41", category: "Token", mark: "41" },
+  { name: "SEP-2 Federation", category: "Addresses", mark: "F" },
+  { name: "Freighter", category: "Wallet", mark: "FR" },
+  { name: "Stellar RPC", category: "Data", mark: "RPC" },
+  { name: "USDC", category: "Asset", mark: "$" },
 ];
 
 export function IntegrationsSection() {
@@ -107,7 +107,7 @@ export function IntegrationsSection() {
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
           <span className="w-12 h-px bg-foreground/20" />
-          Integrations
+          Standards
           <span className="w-12 h-px bg-foreground/20" />
         </span>
 
@@ -189,7 +189,11 @@ export function IntegrationsSection() {
               <div className={`w-10 h-10 mb-6 flex items-center justify-center transition-colors ${
                 hoveredIndex === index ? "text-white" : "text-foreground/60"
               }`}>
-                {logos[integration.name]}
+                {logos[integration.name] ?? (
+                  <span aria-hidden className="font-mono text-xs tracking-tight">
+                    {integration.mark}
+                  </span>
+                )}
               </div>
 
               <span className="font-medium block">{integration.name}</span>
@@ -210,7 +214,7 @@ export function IntegrationsSection() {
         }`}>
           <div className="flex flex-wrap gap-12">
             {[
-              { value: "100+", label: "Integrations" },
+              { value: "open", label: "standards, not lock-in" },
               { value: "OAuth", label: "Auth built-in" },
               { value: "Webhooks", label: "Real-time sync" },
             ].map((stat) => (

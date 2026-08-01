@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 const steps = [
   {
     number: "01",
-    title: "Define",
+    title: "Charter",
     subtitle: "your agent",
-    description: "Describe what your agent should do. Set its capabilities, constraints, and goals in natural language or code.",
+    description: "Charter the organization and name each agent's wallet. Set the spending cap, the functions it may call, and the KYB threshold above which the counterparty must be verified.",
     code: `const researcher = new Agent({
   role: 'Research Analyst',
   capabilities: ['web', 'docs', 'api'],
@@ -17,9 +17,9 @@ const steps = [
   },
   {
     number: "02",
-    title: "Assign",
+    title: "Delegate",
     subtitle: "the task",
-    description: "Give your agent a mission. It breaks down complex tasks into steps and executes them autonomously.",
+    description: "The agent signs with its own wallet and pays for what it needs. The smart account checks the power of attorney on every call and settles in about five seconds.",
     code: `await researcher.execute({
   task: 'Analyze competitor pricing',
   sources: ['public-data', 'news'],
@@ -29,9 +29,9 @@ const steps = [
   },
   {
     number: "03",
-    title: "Monitor",
+    title: "Verify",
     subtitle: "& scale",
-    description: "Acompanhe cada decisão na cadeia. Adicione ou remova agentes quando quiser. A remoção apaga a procuração da conta, não só o rótulo.",
+    description: "Watch every decision land on-chain. Add or remove agents at will — removing one deletes the power of attorney from the account, not just a label.",
     code: `optimus.dashboard({
   agents: [researcher],
   metrics: ['tasks', 'latency', 'cost'],

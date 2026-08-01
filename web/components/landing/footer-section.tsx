@@ -167,7 +167,7 @@ export function FooterSection() {
         {/* Bottom Bar */}
         <div className="py-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-white/30">
-            Charter · protótipo em testnet do Stellar Summit São Paulo 2026
+            Charter · testnet prototype — Stellar Summit São Paulo 2026
           </p>
 
           <div className="flex items-center gap-4 text-sm text-white/30">

@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
-  { name: "O que faz",     href: "#features"     },
-  { name: "Como funciona", href: "#how-it-works" },
-  { name: "Camadas",       href: "#infra"        },
+  { name: "What it does",  href: "#features"     },
+  { name: "How it works",  href: "#how-it-works" },
+  { name: "Layers",        href: "#infra"        },
   { name: "Compliance",    href: "#security"     },
-  { name: "Integrações",   href: "#integrations" },
+  { name: "Standards",     href: "#integrations" },
 ];
 
 export function Navigation() {
@@ -73,7 +73,7 @@ export function Navigation() {
               size="sm"
               className={`rounded-full transition-all duration-500 ${isScrolled ? "bg-foreground hover:bg-foreground/90 text-background px-4 h-8 text-xs" : "bg-white hover:bg-white/90 text-black px-6"}`}
             >
-              Constituir organização
+              Charter an org
             </Button>
           </div>
 
@@ -141,7 +141,7 @@ export function Navigation() {
               className="flex-1 bg-foreground text-background rounded-full h-14 text-base"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Constituir organização
+              Charter an org
             </Button>
           </div>
         </div>

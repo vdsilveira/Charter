@@ -4,20 +4,20 @@ import { useState, useEffect, useRef } from "react";
 
 const features = [
   { 
-    title: "TypeScript native", 
-    description: "Full type safety for agent configs and responses."
+    title: "Refusal you can predict", 
+    description: "Simulate first: the reason for a refusal appears before you spend a transaction."
   },
   { 
-    title: "Streaming results", 
-    description: "Watch your agents think and act in real-time."
+    title: "Federated addresses", 
+    description: "trader*your.domain resolves in any Stellar wallet, via SEP-2."
   },
   { 
-    title: "Multi-model support", 
-    description: "OpenAI, Anthropic, Mistral, or bring your own."
+    title: "One registry, three layers", 
+    description: "The same identity registry governs payments, treasury and the regulated asset."
   },
   { 
-    title: "Local debugging", 
-    description: "Test agents locally before deploying to cloud."
+    title: "Testnet first", 
+    description: "Everything above runs on Stellar testnet today, with contracts you can inspect."
   },
 ];
 

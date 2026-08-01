@@ -5,27 +5,27 @@ import { useEffect, useRef, useState } from "react";
 const features = [
   {
     number: "01",
-    title: "Procuração por agente",
-    description: "Cada agente recebe teto de gasto, escopo de função e prazo. O que sai disso a rede recusa — não um servidor que a contraparte precise confiar.",
-    stats: { value: "on-chain", label: "onde a regra é aplicada" },
+    title: "A power of attorney per agent",
+    description: "Each agent gets a spending cap, a function scope and an expiry. Anything outside that, the network refuses — not a server the counterparty has to trust.",
+    stats: { value: "on-chain", label: "where the rule is enforced" },
   },
   {
     number: "02",
-    title: "Compliance que é garantia",
-    description: "Acima do limiar, a contraparte precisa de claim KYB válido no padrão ERC-3643. Revogou o claim, a operação seguinte é recusada — sem migrar fundos nem trocar contrato.",
-    stats: { value: "ERC-3643", label: "padrão de identidade" },
+    title: "Compliance as a guarantee",
+    description: "Above the threshold, the counterparty needs a valid KYB claim under ERC-3643. Revoke the claim and the next operation is refused — no fund migration, no contract swap.",
+    stats: { value: "ERC-3643", label: "identity standard" },
   },
   {
     number: "03",
-    title: "Tesouraria confidencial",
-    description: "Folha e liquidação com valores ocultos na rede, verificáveis por prova. O auditor que a organização designou abre tudo; o público, nada.",
-    stats: { value: "ZK", label: "valor oculto, saldo provado" },
+    title: "Confidential treasury",
+    description: "Payroll and settlement with amounts hidden on-chain and proven by zero-knowledge. The auditor the organization appointed reads everything; the public reads nothing.",
+    stats: { value: "ZK", label: "amount hidden, balance proven" },
   },
   {
     number: "04",
-    title: "Credencial verificável",
-    description: "A contraparte lê poderes, limites e conduta do agente numa única consulta on-chain — sem carteira e sem confiar em quem opera a organização.",
-    stats: { value: "1 leitura", label: "para decidir contratar" },
+    title: "A credential anyone can verify",
+    description: "A counterparty reads the agent's powers, limits and record in a single on-chain call — no wallet, and no trust in whoever runs the organization.",
+    stats: { value: "1 call", label: "to decide whether to deal" },
   },
 ];
 

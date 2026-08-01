@@ -54,7 +54,7 @@ export function InfrastructureSection() {
             }`}>
               <img
                 src="/media/world.png"
-                alt="Rede Stellar"
+                alt="Stellar network"
                 className="w-full h-full object-contain object-center"
               />
             </div>

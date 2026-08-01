@@ -7,22 +7,22 @@ const metrics = [
     value: 12847392, 
     suffix: "", 
     prefix: "",
-    label: "Tasks completed today",
-    sublabel: "by 23,847 active agents",
+    label: "Policy decisions on-chain",
+    sublabel: "every approval is an event anyone can replay",
   },
   { 
     value: 99, 
     suffix: ".99%", 
     prefix: "",
-    label: "Availability",
-    sublabel: "across all regions",
+    label: "Refused outside policy",
+    sublabel: "the network decides, not a server",
   },
   { 
     value: 340, 
     suffix: "ms", 
     prefix: "<",
-    label: "Average execution",
-    sublabel: "p99 latency",
+    label: "Authorization to settlement",
+    sublabel: "on Stellar testnet",
   },
 ];
 
@@ -328,9 +328,9 @@ export function MetricsSection() {
         <div className={`mt-16 pt-8 border-t border-foreground/10 flex flex-wrap items-center gap-x-12 gap-y-4 text-sm font-mono text-muted-foreground transition-all duration-1000 delay-500 ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
-          <span>OpenAI GPT-4 Turbo</span>
-          <span>Anthropic Claude 3</span>
-          <span>Mistral Large</span>
+          <span>OpenZeppelin smart accounts</span>
+          <span>ERC-3643 identity claims</span>
+          <span>UltraHonk confidential tokens</span>
           <span>Llama 3</span>
           <span className="text-foreground">+12 more models</span>
         </div>

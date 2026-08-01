@@ -57,7 +57,7 @@ export function CtaSection() {
                 </h2>
 
                 <p className="text-xl text-muted-foreground mb-12 leading-relaxed max-w-xl">
-                  Constitua a organização, defina a procuração de cada agente e veja a rede recusar o que sai dela. 
+                  Charter the organization, set each agent's power of attorney, and watch the network refuse whatever falls outside it. 
                   Deploy your first agent in minutes.
                 </p>
 
@@ -79,7 +79,7 @@ export function CtaSection() {
                 </div>
 
                 <p className="text-sm text-muted-foreground mt-8 font-mono">
-                  Constituir na testnet
+                  Charter on testnet
                 </p>
               </div>
 
