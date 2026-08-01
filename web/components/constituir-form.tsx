@@ -100,10 +100,11 @@ export default function ConstituirForm({
   }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-6">
+    <main className="mx-auto max-w-3xl space-y-5 px-6 py-10">
       <header>
-        <h1 className="text-2xl font-semibold">Constituir organização</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="rotulo">nova organização</p>
+        <h1 className="font-serif text-3xl">Constituir organização</h1>
+        <p className="mt-1 text-sm text-slate">
           Uma transação cria a conta corporativa e a procuração de cada agente.
         </p>
       </header>
@@ -113,7 +114,7 @@ export default function ConstituirForm({
           <CardContent className="flex items-baseline justify-between gap-4 pt-5">
             <div>
               <p className="text-sm font-medium">Taxa de constituição</p>
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-slate">
                 Cobrada na mesma transação que cria a organização — não há como constituir sem
                 pagar, nem pagar sem constituir.
               </p>
@@ -130,7 +131,7 @@ export default function ConstituirForm({
         </CardHeader>
         <CardContent>
           <label className="block text-sm">
-            <span className="mb-1 block text-neutral-600">Nome da organização</span>
+            <span className="mb-1 block text-slate">Nome da organização</span>
             <Input value={org} onChange={(e) => setOrg(e.target.value)} placeholder="alphafund" />
           </label>
         </CardContent>
@@ -146,11 +147,11 @@ export default function ConstituirForm({
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-3">
             <label className="block text-sm">
-              <span className="mb-1 block text-neutral-600">Rótulo</span>
+              <span className="mb-1 block text-slate">Rótulo</span>
               <Input value={a.label} onChange={(e) => atualizar(i, "label", e.target.value)} placeholder="trader" />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-neutral-600">Funções permitidas</span>
+              <span className="mb-1 block text-slate">Funções permitidas</span>
               <Input
                 value={a.allowedFns.join(", ")}
                 onChange={(e) => atualizar(i, "allowedFns", e.target.value)}
@@ -158,7 +159,7 @@ export default function ConstituirForm({
               />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-neutral-600">Limiar de KYB</span>
+              <span className="mb-1 block text-slate">Limiar de KYB</span>
               <Input
                 value={a.kybThreshold}
                 onChange={(e) => atualizar(i, "kybThreshold", e.target.value)}
@@ -182,7 +183,7 @@ export default function ConstituirForm({
       </div>
 
       {erro && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-md bg-denysoft px-3 py-2 text-sm text-deny">
           {erro}
         </p>
       )}
@@ -190,7 +191,7 @@ export default function ConstituirForm({
       {feito && (
         <Card>
           <CardContent className="space-y-2 pt-5 text-sm">
-            <p className="font-medium text-emerald-800">Organização constituída.</p>
+            <p className="font-medium text-ok">Organização constituída.</p>
             <p className="break-all font-mono text-xs">{feito.account}</p>
             <a
               className="underline"

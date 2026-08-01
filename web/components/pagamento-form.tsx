@@ -65,7 +65,7 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="mb-1 block text-neutral-600">Destinatário</span>
+          <span className="mb-1 block text-slate">Destinatário</span>
           <Input
             value={destinatario}
             onChange={(e) => {
@@ -76,7 +76,7 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
           />
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block text-neutral-600">Valor</span>
+          <span className="mb-1 block text-slate">Valor</span>
           <Input
             value={valor}
             onChange={(e) => {
@@ -97,18 +97,18 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
           Enviar
         </Button>
         {previsao?.wouldSucceed && !hash && (
-          <span className="text-sm text-emerald-700">a rede aprovaria esta operação</span>
+          <span className="text-sm text-ok">a rede aprovaria esta operação</span>
         )}
       </div>
 
       {motivo && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-md bg-denysoft px-3 py-2 text-sm text-deny">
           Seria recusada: {motivo}
         </p>
       )}
 
       {hash && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <p className="rounded-md bg-oksoft px-3 py-2 text-sm text-ok">
           Liquidado —{" "}
           <a
             className="underline"

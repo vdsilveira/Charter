@@ -131,14 +131,14 @@ export default function PainelAgentes({
 
       <CardContent className="space-y-4">
         {abrindo && (
-          <div className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+          <div className="space-y-3 rounded-lg border border-hairline bg-paper p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-sm">
-                <span className="mb-1 block text-neutral-600">Rótulo</span>
+                <span className="mb-1 block text-slate">Rótulo</span>
                 <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="tesoureiro" />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block text-neutral-600">Carteira do agente</span>
+                <span className="mb-1 block text-slate">Carteira do agente</span>
                 <Input
                   value={carteira}
                   onChange={(e) => setCarteira(e.target.value)}
@@ -147,15 +147,15 @@ export default function PainelAgentes({
                 />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block text-neutral-600">Funções permitidas</span>
+                <span className="mb-1 block text-slate">Funções permitidas</span>
                 <Input value={fns} onChange={(e) => setFns(e.target.value)} placeholder="transfer" />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block text-neutral-600">Limiar de KYB</span>
+                <span className="mb-1 block text-slate">Limiar de KYB</span>
                 <Input value={limiar} onChange={(e) => setLimiar(e.target.value)} inputMode="numeric" />
               </label>
             </div>
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-slate">
               Deixe as funções em branco para um agente que não move valor — é o caso do auditor.
             </p>
             <Button size="sm" onClick={confirmarAdicao} disabled={ocupado}>
@@ -165,9 +165,9 @@ export default function PainelAgentes({
         )}
 
         {agentes === null ? (
-          <p className="text-sm text-neutral-500">carregando…</p>
+          <p className="text-sm text-slate">carregando…</p>
         ) : (
-          <ul className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-hairline">
             {agentes.map((a) => (
               <li key={a.label} className="flex items-center justify-between gap-4 py-3">
                 <div>
@@ -175,7 +175,7 @@ export default function PainelAgentes({
                     {a.label}{" "}
                     {!a.active && <Badge variant="alert">revogado</Badge>}
                   </p>
-                  <p className="text-sm text-neutral-600">
+                  <p className="text-sm text-slate">
                     {a.allowedFns.length ? (
                       <>
                         pode <span className="font-mono text-xs">{a.allowedFns.join(", ")}</span>,
@@ -190,7 +190,7 @@ export default function PainelAgentes({
                 {a.active &&
                   (confirmando === a.label ? (
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-neutral-600">Tem certeza?</span>
+                      <span className="text-slate">Tem certeza?</span>
                       <Button size="sm" onClick={() => confirmarRemocao(a.label)} disabled={ocupado}>
                         Confirmar
                       </Button>
@@ -209,7 +209,7 @@ export default function PainelAgentes({
         )}
 
         {erro && (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p role="alert" className="rounded-md bg-denysoft px-3 py-2 text-sm text-deny">
             {erro}
           </p>
         )}

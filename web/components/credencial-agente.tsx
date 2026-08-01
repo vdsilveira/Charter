@@ -31,38 +31,38 @@ export default function CredencialAgente({ credencial: c }: { credencial: Creden
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base">
           {c.label}
-          <span className="ml-2 font-mono text-xs font-normal text-neutral-400">*{c.org}</span>
+          <span className="ml-2 font-mono text-xs font-normal text-slate/70">*{c.org}</span>
         </CardTitle>
         {c.active ? <Badge variant="ok">ativo</Badge> : <Badge variant="alert">revogado</Badge>}
       </CardHeader>
 
       <CardContent className="space-y-4">
         <section>
-          <h4 className="mb-1 text-xs uppercase tracking-wide text-neutral-500">procuração</h4>
+          <h4 className="mb-1 text-xs uppercase tracking-wide text-slate">procuração</h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-neutral-500">pode invocar</dt>
+            <dt className="text-slate">pode invocar</dt>
             <dd>
               {c.policy.allowedFns.length ? (
                 <span className="font-mono text-xs">{c.policy.allowedFns.join(", ")}</span>
               ) : (
-                <span className="text-neutral-600">
+                <span className="text-slate">
                   não pode invocar nenhuma função — não move valor
                 </span>
               )}
             </dd>
-            <dt className="text-neutral-500">exige KYB acima de</dt>
+            <dt className="text-slate">exige KYB acima de</dt>
             <dd>{c.policy.kybThreshold}</dd>
           </dl>
         </section>
 
         <section>
-          <h4 className="mb-1 text-xs uppercase tracking-wide text-neutral-500">conduta</h4>
+          <h4 className="mb-1 text-xs uppercase tracking-wide text-slate">conduta</h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-neutral-500">operações aprovadas</dt>
+            <dt className="text-slate">operações aprovadas</dt>
             <dd>{c.conduct.opsOk}</dd>
-            <dt className="text-neutral-500">volume total</dt>
-            <dd className="text-neutral-500">{c.conduct.volumeTotal}</dd>
-            <dt className="text-neutral-500">com contraparte verificada</dt>
+            <dt className="text-slate">volume total</dt>
+            <dd className="text-slate">{c.conduct.volumeTotal}</dd>
+            <dt className="text-slate">com contraparte verificada</dt>
             <dd data-testid="volume-attested" className="font-semibold">
               {c.conduct.volumeAttested}
             </dd>
@@ -77,7 +77,7 @@ export default function CredencialAgente({ credencial: c }: { credencial: Creden
           )}
         </p>
 
-        <p className="break-all font-mono text-xs text-neutral-400">assina por {c.account}</p>
+        <p className="break-all font-mono text-xs text-slate/70">assina por {c.account}</p>
       </CardContent>
     </Card>
   );

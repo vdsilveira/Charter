@@ -33,13 +33,13 @@ export default function Leaderboard({ carregar }: { carregar: () => Promise<Linh
   }, [carregar]);
 
   if (erro) {
-    return <p role="alert" className="text-sm text-red-800">Não foi possível ler a cadeia: {erro}</p>;
+    return <p role="alert" className="text-sm text-deny">Não foi possível ler a cadeia: {erro}</p>;
   }
-  if (linhas === null) return <p className="text-sm text-neutral-500">carregando…</p>;
+  if (linhas === null) return <p className="text-sm text-slate">carregando…</p>;
 
   return (
     <table className="w-full text-sm">
-      <thead className="text-left text-neutral-500">
+      <thead className="text-left text-slate">
         <tr>
           <th className="py-2 font-medium">agente</th>
           <th className="py-2 font-medium">aprovadas</th>
@@ -49,13 +49,13 @@ export default function Leaderboard({ carregar }: { carregar: () => Promise<Linh
       </thead>
       <tbody>
         {linhas.map((a) => (
-          <tr key={a.label} className="border-t border-neutral-100">
+          <tr key={a.label} className="border-t border-hairline">
             <td className="py-2">
               {a.label}{" "}
               {!a.active && <Badge variant="alert">revogado</Badge>}
             </td>
             <td className="py-2">{a.opsOk}</td>
-            <td className="py-2 text-neutral-500">{a.volumeTotal}</td>
+            <td className="py-2 text-slate">{a.volumeTotal}</td>
             <td className="py-2 font-semibold">{a.volumeAttested}</td>
           </tr>
         ))}

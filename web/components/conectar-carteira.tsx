@@ -64,11 +64,11 @@ export default function ConectarCarteira({
     }
   }
 
-  if (disponivel === null) return <span className="text-sm text-neutral-500">verificando…</span>;
+  if (disponivel === null) return <span className="text-sm text-slate">verificando…</span>;
 
   if (!disponivel) {
     return (
-      <p className="max-w-xs text-sm text-neutral-600">
+      <p className="max-w-xs text-sm text-slate">
         Freighter não encontrado.{" "}
         <a className="underline" href="https://freighter.app/" target="_blank" rel="noreferrer">
           Instalar
@@ -81,7 +81,7 @@ export default function ConectarCarteira({
   if (endereco) {
     return (
       <span
-        className="rounded-full bg-emerald-50 px-3 py-1 font-mono text-sm text-emerald-800"
+        className="rounded-full bg-oksoft px-3 py-1 font-mono text-sm text-ok"
         title={endereco}
       >
         {encurtar(endereco)}
@@ -95,7 +95,7 @@ export default function ConectarCarteira({
         Conectar carteira
       </Button>
       {erro && (
-        <p role="alert" className="text-sm text-red-800">
+        <p role="alert" className="text-sm text-deny">
           {erro}
         </p>
       )}

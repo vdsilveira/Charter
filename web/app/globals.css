@@ -1,4 +1,131 @@
 @import "tailwindcss";
 
-:root { color-scheme: light; }
-body { background: #fafafa; color: #171717; }
+/*
+  Charter — sistema visual.
+
+  O produto é um registro público com selo de autoridade: constitui, atesta,
+  recusa. Daí a paleta ser tinta sobre papel, com um único acento âmbar de
+  lacre, usado onde há ação e nunca como decoração. Verde e vermelho ficam
+  reservados a significado (aprovado / recusado) e não contam como acento.
+*/
+
+:root {
+  /* Neutros escolhidos, não herdados: a tinta puxa azul, o papel puxa quente. */
+  --paper: #faf9f7;
+  --surface: #ffffff;
+  --ink: #101720;
+  --slate: #5b6675;
+  --hairline: #e4e1dc;
+
+  /* Acento: lacre. */
+  --seal: #a6521c;
+  --seal-soft: #f6ecdf;
+
+  /* Semânticos: significado, não estilo. */
+  --ok: #14713c;
+  --ok-soft: #e6f2ea;
+  --deny: #a61b1b;
+  --deny-soft: #fbeaea;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0d1117;
+    --surface: #141a22;
+    --ink: #e8eaed;
+    --slate: #97a1b0;
+    --hairline: #232b36;
+    --seal: #d98324;
+    --seal-soft: #2a1f14;
+    --ok: #4ade80;
+    --ok-soft: #12251a;
+    --deny: #f87171;
+    --deny-soft: #2a1516;
+    color-scheme: dark;
+  }
+}
+
+/* A escolha do usuário vence a preferência do sistema, nos dois sentidos. */
+:root[data-theme="dark"] {
+  --paper: #0d1117;
+  --surface: #141a22;
+  --ink: #e8eaed;
+  --slate: #97a1b0;
+  --hairline: #232b36;
+  --seal: #d98324;
+  --seal-soft: #2a1f14;
+  --ok: #4ade80;
+  --ok-soft: #12251a;
+  --deny: #f87171;
+  --deny-soft: #2a1516;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --paper: #faf9f7;
+  --surface: #ffffff;
+  --ink: #101720;
+  --slate: #5b6675;
+  --hairline: #e4e1dc;
+  --seal: #a6521c;
+  --seal-soft: #f6ecdf;
+  --ok: #14713c;
+  --ok-soft: #e6f2ea;
+  --deny: #a61b1b;
+  --deny-soft: #fbeaea;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-slate: var(--slate);
+  --color-hairline: var(--hairline);
+  --color-seal: var(--seal);
+  --color-sealsoft: var(--seal-soft);
+  --color-ok: var(--ok);
+  --color-oksoft: var(--ok-soft);
+  --color-deny: var(--deny);
+  --color-denysoft: var(--deny-soft);
+
+  --font-sans: var(--fonte-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--fonte-display), ui-serif, Georgia, serif;
+  --font-mono: var(--fonte-dados), ui-monospace, monospace;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+/* Rótulo de ficha: versalete espaçado, como cabeçalho de registro. */
+.rotulo {
+  font-size: 0.6875rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+
+/* Onde há dígitos em coluna, eles se alinham. */
+.dados {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3 { text-wrap: balance; }
+
+:focus-visible {
+  outline: 2px solid var(--seal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

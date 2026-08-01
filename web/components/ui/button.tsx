@@ -5,15 +5,17 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const button = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-45",
   {
     variants: {
       variant: {
-        default: "bg-neutral-900 text-white hover:bg-neutral-800",
-        outline: "border border-neutral-300 bg-white hover:bg-neutral-50",
-        ghost: "hover:bg-neutral-100",
+        // O selo marca a ação principal — uma por tela.
+        default: "bg-seal text-white hover:brightness-110",
+        outline: "border border-hairline bg-surface hover:border-slate",
+        ghost: "text-slate hover:bg-sealsoft hover:text-seal",
+        deny: "border border-hairline text-deny hover:bg-denysoft",
       },
-      size: { default: "h-9 px-4 py-2", sm: "h-8 px-3 text-xs", lg: "h-11 px-6" },
+      size: { default: "h-9 px-4", sm: "h-8 px-3 text-[13px]", lg: "h-11 px-6" },
     },
     defaultVariants: { variant: "default", size: "default" },
   },

@@ -31,21 +31,24 @@ export default async function PaginaOrg({
   }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-5 p-6">
+    <main className="mx-auto max-w-3xl space-y-5 px-6 py-10">
       <header>
-        <h1 className="text-2xl font-semibold">{org}</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="rotulo">credencial pública</p>
+        <h1 className="font-serif text-3xl">{org}</h1>
+        <p className="mt-1 text-sm text-slate">
           Procurações vigentes, lidas da rede. Nenhuma carteira necessária.
         </p>
       </header>
 
       {credenciais.length === 0 ? (
-        <p className="text-sm text-neutral-600">Nenhum agente encontrado nesta organização.</p>
+        <p className="rounded-lg border border-hairline bg-surface px-5 py-8 text-center text-sm text-slate">
+          Nenhum agente encontrado nesta organização.
+        </p>
       ) : (
         credenciais.map((c) => <CredencialAgente key={c.label} credencial={c} />)
       )}
 
-      <footer className="border-t border-neutral-200 pt-4 text-sm text-neutral-600">
+      <footer className="border-t border-hairline pt-4 text-sm text-slate">
         Cada campo vem de uma leitura on-chain. Nada aqui depende de confiar em quem opera a
         organização.
       </footer>

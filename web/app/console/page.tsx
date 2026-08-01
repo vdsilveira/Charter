@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import ConectarCarteira from "@/components/conectar-carteira";
 import Feed, { type Decisao } from "@/components/feed";
 import Leaderboard, { type LinhaAgente } from "@/components/leaderboard";
 import PagamentoForm from "@/components/pagamento-form";
@@ -45,15 +44,13 @@ export default function ConsolePage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-6">
-      <header className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Console — {ORG}</h1>
-          <p className="text-sm text-neutral-600">
-            Toda decisão abaixo veio da cadeia. Nada é reconstruído de banco próprio.
-          </p>
-        </div>
-        <ConectarCarteira />
+    <main className="mx-auto max-w-5xl space-y-6 px-6 py-10">
+      <header>
+        <p className="rotulo">organização</p>
+        <h1 className="font-serif text-3xl">{ORG}</h1>
+        <p className="mt-1 text-sm text-slate">
+          Toda decisão abaixo veio da cadeia. Nada é reconstruído de banco próprio.
+        </p>
       </header>
 
       <Card>

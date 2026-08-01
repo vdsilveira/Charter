@@ -53,15 +53,15 @@ export default function Feed({
 
   if (erro) {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+      <p role="alert" className="rounded-md bg-denysoft px-3 py-2 text-sm text-deny">
         Não foi possível ler a cadeia: {erro}
       </p>
     );
   }
-  if (linhas === null) return <p className="text-sm text-neutral-500">carregando…</p>;
+  if (linhas === null) return <p className="text-sm text-slate">carregando…</p>;
   if (linhas.length === 0) {
     return (
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-slate">
         Nenhuma decisão registrada ainda. Cada operação aprovada aparece aqui.
       </p>
     );
@@ -69,7 +69,7 @@ export default function Feed({
 
   return (
     <table className="w-full text-sm">
-      <thead className="text-left text-neutral-500">
+      <thead className="text-left text-slate">
         <tr>
           <th className="py-2 font-medium">agente</th>
           <th className="py-2 font-medium">função</th>
@@ -80,7 +80,7 @@ export default function Feed({
       </thead>
       <tbody>
         {linhas.map((d) => (
-          <tr key={d.tx} className="border-t border-neutral-100">
+          <tr key={d.tx} className="border-t border-hairline">
             <td className="py-2">{d.agent}</td>
             <td className="py-2 font-mono text-xs">{d.fn}</td>
             <td className="py-2">{d.amount}</td>
@@ -91,7 +91,7 @@ export default function Feed({
                 <Badge variant="muted">não verificada</Badge>
               )}
             </td>
-            <td className="py-2 font-mono text-xs text-neutral-500">{encurtar(d.tx, 6)}</td>
+            <td className="py-2 font-mono text-xs text-slate">{encurtar(d.tx, 6)}</td>
           </tr>
         ))}
       </tbody>
