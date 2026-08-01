@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+.git
+reference/
+contracts/target/
+web/.next/
+vendor/ctd-sdk/dist/
+*.log
+.env.demo
+.env.identity

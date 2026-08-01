@@ -27,12 +27,5 @@
     "express": "^5.2.1",
     "@ctd/sdk": "workspace:*"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "msgpackr-extract",
-      "sharp",
-      "workerd"
-    ]
-  }
+  "packageManager": "pnpm@11.8.0"
 }

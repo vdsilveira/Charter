@@ -2,8 +2,13 @@ packages:
   - "vendor/*"
   - "web"
 
+# pnpm 11 trata build script não aprovado como erro fatal, e num build limpo
+# (Docker) a lista precisa ser exaustiva — localmente passava por já haver
+# aprovação no estado do store.
 onlyBuiltDependencies:
+  - bufferutil
   - esbuild
   - msgpackr-extract
   - sharp
+  - utf-8-validate
   - workerd
