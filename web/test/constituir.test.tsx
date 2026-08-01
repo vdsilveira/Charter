@@ -28,7 +28,7 @@ const conectada = () => ({
 /** Preenche o mínimo para uma constituição válida. */
 async function preencher(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/organization name/i), "alphafund");
-  await user.type(screen.getByLabelText(/label/i), "trader");
+  await user.type(screen.getByLabelText(/agent name/i), "trader");
   await user.type(screen.getByLabelText(/agent wallet/i), CARTEIRA_AGENTE);
 }
 
@@ -136,6 +136,20 @@ describe("constituição da organização", () => {
     expect(onSubmit.mock.calls[0][0].agentes[0].carteira).toBe(CARTEIRA_AGENTE);
   });
 
+  it("o título do agente segue o nome digitado", async () => {
+    const user = userEvent.setup();
+    render(<ConstituirForm onSubmit={vi.fn()} api={conectada()} />);
+
+    // Um ordinal fixo ("Agent 1") faz o campo parecer decorativo — e o nome é
+    // justamente o que vira o subdomínio que a contraparte lê.
+    expect(screen.getByText("Agent 1")).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/organization name/i), "alphafund");
+    await user.type(screen.getByLabelText(/agent name/i), "tesoureiro");
+
+    expect(await screen.findByText("tesoureiro*alphafund")).toBeInTheDocument();
+    expect(screen.queryByText("Agent 1")).not.toBeInTheDocument();
+  });
+
   it("mostra qual carteira vai assinar", async () => {
     render(<ConstituirForm onSubmit={vi.fn()} api={conectada()} />);
     expect(await screen.findByText(/GBBH2YAT/)).toBeInTheDocument();
@@ -164,7 +178,7 @@ describe("constituição da organização", () => {
     render(<ConstituirForm onSubmit={onSubmit} api={conectada()} />);
 
     await user.type(screen.getByLabelText(/organization name/i), "alphafund");
-    await user.type(screen.getByLabelText(/label/i), "trader");
+    await user.type(screen.getByLabelText(/agent name/i), "trader");
     await user.click(screen.getByRole("button", { name: /charter/i }));
 
     // A procuração é escrita para o endereço do agente: sem ele não há o que

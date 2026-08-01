@@ -48,7 +48,7 @@ describe("taxa de constituição", () => {
     );
 
     await user.type(screen.getByLabelText(/organization name/i), "acme");
-    await user.type(screen.getByLabelText(/label/i), "trader");
+    await user.type(screen.getByLabelText(/agent name/i), "trader");
     await user.type(screen.getByLabelText(/agent wallet/i), CARTEIRA_AGENTE);
     // Recusar na carteira é caminho normal, não exceção: quem lê a taxa e
     // desiste precisa ver o motivo, não uma tela em branco.
@@ -80,7 +80,7 @@ describe("painel de agentes", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: /add agent/i }));
-    await user.type(screen.getByLabelText(/label/i), "tesoureiro");
+    await user.type(screen.getByLabelText(/agent name/i), "tesoureiro");
     await user.type(screen.getByLabelText(/wallet/i), CARTEIRA_AGENTE);
     await user.click(screen.getByRole("button", { name: /^add$/i }));
 
@@ -99,7 +99,7 @@ describe("painel de agentes", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: /add agent/i }));
-    await user.type(screen.getByLabelText(/label/i), "tesoureiro");
+    await user.type(screen.getByLabelText(/agent name/i), "tesoureiro");
     await user.click(screen.getByRole("button", { name: /^add$/i }));
 
     expect(adicionar).not.toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe("painel de agentes", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: /add agent/i }));
-    await user.type(screen.getByLabelText(/label/i), "tesoureiro");
+    await user.type(screen.getByLabelText(/agent name/i), "tesoureiro");
     await user.type(screen.getByLabelText(/wallet/i), "não é um endereço");
     await user.click(screen.getByRole("button", { name: /^add$/i }));
 

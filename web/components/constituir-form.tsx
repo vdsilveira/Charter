@@ -209,14 +209,23 @@ export default function ConstituirForm({
       {agentes.map((a, i) => (
         <Card key={i}>
           <CardHeader>
-            <CardTitle className="text-base">Agent {i + 1}</CardTitle>
+            {/* O título segue o que foi digitado. Um ordinal fixo faz o campo
+                parecer decorativo, e o nome é o que a contraparte vai ler. */}
+            <CardTitle className="text-base">
+              {a.label.trim() || `Agent ${i + 1}`}
+              {a.label.trim() && org.trim() && (
+                <span className="ml-2 font-mono text-xs font-normal text-slate/70">
+                  {a.label.trim()}*{org.trim()}
+                </span>
+              )}
+            </CardTitle>
             <CardDescription>
               An empty scope means an agent that moves no value — the auditor, for instance.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm">
-              <span className="mb-1 block text-slate">Label</span>
+              <span className="mb-1 block text-slate">Agent name</span>
               <Input value={a.label} onChange={(e) => atualizar(i, "label", e.target.value)} placeholder="trader" />
             </label>
             <label className="block text-sm">

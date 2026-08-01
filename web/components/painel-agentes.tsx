@@ -69,7 +69,7 @@ export default function PainelAgentes({
   async function confirmarAdicao() {
     setErro(null);
     if (!label.trim()) {
-      setErro("Enter the agent label.");
+      setErro("Enter the agent name.");
       return;
     }
     if (!carteira.trim()) {
@@ -134,7 +134,7 @@ export default function PainelAgentes({
           <div className="space-y-3 rounded-lg border border-hairline bg-paper p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-sm">
-                <span className="mb-1 block text-slate">Label</span>
+                <span className="mb-1 block text-slate">Agent name</span>
                 <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="tesoureiro" />
               </label>
               <label className="block text-sm">
