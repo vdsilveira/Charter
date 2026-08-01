@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 interface Pilar {
   numero: string;
   padrao: string;
-  origem: string;
+  origem: string[];
   titulo: string;
   standard: string;
   aplicacao: string;
@@ -28,7 +28,7 @@ const pilares: Pilar[] = [
   {
     numero: "01",
     padrao: "Account abstraction",
-    origem: "OpenZeppelin · stellar-accounts",
+    origem: ["OpenZeppelin", "stellar-accounts", "Soroban"],
     titulo: "The account is the policy",
     standard:
       "Stellar smart accounts let a contract decide, per call, whether an authorization is valid. Context rules bind signers and policies to a target contract; the host calls the account on every invocation.",
@@ -43,7 +43,7 @@ const pilares: Pilar[] = [
   {
     numero: "02",
     padrao: "Agent and institution identity",
-    origem: "ERC-3643 (T-REX) · OpenZeppelin RWA",
+    origem: ["ERC-3643", "T-REX", "OpenZeppelin RWA"],
     titulo: "Compliance that enforces, not paperwork that files",
     standard:
       "Claim-based identity for regulated assets: trusted issuers sign claims about a subject, a registry binds wallet to identity, and every transfer consults it before moving value.",
@@ -58,7 +58,7 @@ const pilares: Pilar[] = [
   {
     numero: "03",
     padrao: "Naming — the ENS question, answered the Stellar way",
-    origem: "SEP-2 Federation",
+    origem: ["SEP-2", "Federation", "stellar.toml"],
     titulo: "A label only we understand is not an address",
     standard:
       "Stellar answers naming with federation rather than an on-chain name registry: a domain publishes stellar.toml pointing at a federation server, and any wallet resolves human-readable addresses through it.",
@@ -72,7 +72,7 @@ const pilares: Pilar[] = [
   {
     numero: "04",
     padrao: "Private transactions",
-    origem: "Confidential Tokens · UltraHonk (Nethermind)",
+    origem: ["Confidential Tokens", "UltraHonk", "Grumpkin", "Nethermind"],
     titulo: "Amounts hidden, balances proven, auditor served",
     standard:
       "A wrapper turns any SEP-41 asset confidential: balances become Pedersen commitments on the Grumpkin curve, and every state change carries a zero-knowledge proof the network verifies on-chain. Confidentiality, not anonymity — addresses stay public.",
@@ -87,7 +87,7 @@ const pilares: Pilar[] = [
   {
     numero: "05",
     padrao: "x402 — agent payments",
-    origem: "x402 on Stellar · OZ Channels facilitator",
+    origem: ["x402", "SEP-41", "OZ Channels"],
     titulo: "The agent pays, the policy decides",
     standard:
       "x402 revives HTTP 402: the server answers with payment requirements, the client settles, the resource unlocks. On Stellar the client signs auth entries rather than whole transactions, so a facilitator can sponsor the network fee.",
@@ -162,13 +162,19 @@ export function StackSection() {
                 </span>
 
                 <div>
-                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                    <span className="font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span className="font-mono text-sm uppercase tracking-[0.14em] text-foreground">
                       {p.padrao}
                     </span>
-                    <span className="font-mono text-[11px] text-muted-foreground/70">
-                      {p.origem}
-                    </span>
+                    <span aria-hidden className="h-4 w-px bg-foreground/25" />
+                    {p.origem.map((tec) => (
+                      <span
+                        key={tec}
+                        className="rounded-full border border-foreground/25 px-2.5 py-1 font-mono text-[11px] leading-none text-foreground/85 transition-colors duration-300 group-hover:border-foreground/45"
+                      >
+                        {tec}
+                      </span>
+                    ))}
                   </div>
 
                   <h3 className="mt-3 max-w-3xl font-display text-3xl leading-[1.05] tracking-tight md:text-4xl lg:text-[2.75rem]">
