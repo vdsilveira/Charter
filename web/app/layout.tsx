@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
-import Chrome from "@/components/chrome";
+import {
+  IBM_Plex_Mono,
+  IBM_Plex_Sans,
+  Instrument_Sans,
+  Instrument_Serif,
+  JetBrains_Mono,
+  Newsreader,
+} from "next/font/google";
 import "./globals.css";
 
 // Newsreader carrega o ar de documento oficial; Plex Sans dá o registro
@@ -17,6 +23,15 @@ const ui = IBM_Plex_Sans({
   variable: "--fonte-ui",
   weight: ["400", "500", "600"],
 });
+// Faces do site institucional: só entram dentro de `.tema-site`.
+const siteUi = Instrument_Sans({ subsets: ["latin"], variable: "--fonte-site-ui" });
+const siteDisplay = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--fonte-site-display",
+});
+const siteMono = JetBrains_Mono({ subsets: ["latin"], variable: "--fonte-site-mono" });
+
 const dados = IBM_Plex_Mono({
   subsets: ["latin"],
   variable: "--fonte-dados",
@@ -24,16 +39,15 @@ const dados = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Charter — organizações agentificadas na Stellar",
+  title: "Charter — procuração programável para organizações que operam por agentes",
   description:
-    "Constitua uma organização on-chain: procuração programável por agente, compliance verificável por terceiros e liquidação confidencial.",
+    "Constitua uma organização on-chain na Stellar: teto, escopo e prazo por agente, aplicados pela rede; compliance verificável por terceiros; liquidação confidencial com auditoria.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${display.variable} ${ui.variable} ${dados.variable}`}>
+    <html lang="pt-BR" className={`${display.variable} ${ui.variable} ${dados.variable} ${siteUi.variable} ${siteDisplay.variable} ${siteMono.variable}`}>
       <body className="min-h-screen antialiased">
-        <Chrome />
         {children}
       </body>
     </html>

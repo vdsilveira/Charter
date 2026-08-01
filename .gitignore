@@ -40,3 +40,6 @@ web/next-env.d.ts
 
 # Pacotes de exportação
 *.zip
+
+# Template de origem — já integrado em web/
+site_template/

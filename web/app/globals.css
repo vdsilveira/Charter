@@ -79,6 +79,24 @@
 }
 
 @theme inline {
+  /* Tokens do site institucional — os valores vêm de `.tema-site`. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --font-display: var(--fonte-site-display), ui-serif, Georgia, serif;
+
   --color-paper: var(--paper);
   --color-surface: var(--surface);
   --color-ink: var(--ink);
@@ -128,4 +146,42 @@ h1, h2, h3 { text-wrap: balance; }
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Tema do site institucional.
+
+   A landing tem outra natureza: fundo escuro, serif de display, cena ASCII.
+   Os tokens ficam ESCOPADOS em `.tema-site` em vez de globais — inclusive as
+   variáveis de fonte, que o Tailwind resolve por herança. Assim `font-mono`
+   dentro da landing dá JetBrains e fora dela continua dando Plex, sem que um
+   sistema precise ceder ao outro.
+--------------------------------------------------------------------------- */
+.tema-site {
+  --background: oklch(0.06 0.008 260);
+  --foreground: oklch(0.94 0.005 90);
+  --card: oklch(0.09 0.008 260);
+  --card-foreground: oklch(0.94 0.005 90);
+  --muted: oklch(0.12 0.008 260);
+  --muted-foreground: oklch(0.55 0.015 90);
+  --accent: oklch(0.14 0.01 260);
+  --border: oklch(0.18 0.008 260);
+  --input: oklch(0.14 0.008 260);
+  --primary: oklch(0.94 0.005 90);
+  --primary-foreground: oklch(0.06 0.008 260);
+  --secondary: oklch(0.12 0.008 260);
+  --secondary-foreground: oklch(0.94 0.005 90);
+  --destructive: oklch(0.577 0.245 27.325);
+  --ring: oklch(0.94 0.005 90);
+  --radius: 0.25rem;
+
+  /* Redefinir aqui faz as classes do Tailwind resolverem por herança. */
+  --font-sans: var(--fonte-site-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--fonte-site-mono), ui-monospace, monospace;
+  --font-display: var(--fonte-site-display), ui-serif, Georgia, serif;
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  color-scheme: dark;
 }
