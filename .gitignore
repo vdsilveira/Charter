@@ -33,3 +33,7 @@ secrets/
 # Chave do claim issuer (mock de testnet) — necessária para emitir novos claims
 .env.identity
 .env.demo
+
+# Next.js
+web/.next/
+web/next-env.d.ts
