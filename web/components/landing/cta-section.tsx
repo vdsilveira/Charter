@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import EntrarNoApp from "@/components/landing/entrar-no-app";
 
 export function CtaSection() {
   const [isVisible, setIsVisible] = useState(false);
@@ -58,28 +59,30 @@ export function CtaSection() {
 
                 <p className="text-xl text-muted-foreground mb-12 leading-relaxed max-w-xl">
                   Charter the organization, set each agent's power of attorney, and watch the network refuse whatever falls outside it. 
-                  Deploy your first agent in minutes.
+                  Charter an organization and delegate to your first agent in minutes.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-start gap-4">
-                  <Button
-                    size="lg"
-                    className="bg-foreground hover:bg-foreground/90 text-background px-8 h-14 text-base rounded-full group"
+                  <EntrarNoApp
+                    destino="/constituir"
+                    className="inline-flex items-center justify-center bg-foreground hover:bg-foreground/90 text-background px-8 h-14 text-base font-medium rounded-full group disabled:opacity-50"
                   >
-                    Deploy your first agent
+                    Charter an organization
                     <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5"
+                  </EntrarNoApp>
+
+                  {/* Ver a credencial não exige carteira — quem consulta um
+                      agente ainda não é cliente. */}
+                  <a
+                    href="/o/alphafund"
+                    className="inline-flex items-center justify-center h-14 px-8 text-base rounded-full border border-foreground/20 hover:bg-foreground/5"
                   >
-                    Book a demo
-                  </Button>
+                    See a live credential
+                  </a>
                 </div>
 
                 <p className="text-sm text-muted-foreground mt-8 font-mono">
-                  Charter on testnet
+                  Runs on Stellar testnet · Freighter required to sign
                 </p>
               </div>
 

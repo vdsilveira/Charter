@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import EntrarNoApp from "@/components/landing/entrar-no-app";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
@@ -66,15 +67,18 @@ export function Navigation() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <a href="/console" className={`transition-all duration-500 ${isScrolled ? "text-xs text-foreground/70 hover:text-foreground" : "text-sm text-white/70 hover:text-white"}`}>
+            <EntrarNoApp
+              destino="/console"
+              className={`transition-all duration-500 ${isScrolled ? "text-xs text-foreground/70 hover:text-foreground" : "text-sm text-white/70 hover:text-white"}`}
+            >
               Console
-            </a>
-            <Button
-              size="sm"
-              className={`rounded-full transition-all duration-500 ${isScrolled ? "bg-foreground hover:bg-foreground/90 text-background px-4 h-8 text-xs" : "bg-white hover:bg-white/90 text-black px-6"}`}
+            </EntrarNoApp>
+            <EntrarNoApp
+              destino="/constituir"
+              className={`inline-flex items-center justify-center rounded-full font-medium transition-all duration-500 disabled:opacity-50 ${isScrolled ? "bg-foreground hover:bg-foreground/90 text-background px-4 h-8 text-xs" : "bg-white hover:bg-white/90 text-black px-6 h-9 text-sm"}`}
             >
               Charter an org
-            </Button>
+            </EntrarNoApp>
           </div>
 
           {/* Mobile Menu Button */}
@@ -137,12 +141,12 @@ export function Navigation() {
             >
               Sign in
             </Button>
-            <Button 
-              className="flex-1 bg-foreground text-background rounded-full h-14 text-base"
-              onClick={() => setIsMobileMenuOpen(false)}
+            <EntrarNoApp
+              destino="/constituir"
+              className="flex-1 inline-flex items-center justify-center bg-foreground text-background rounded-full h-14 text-base font-medium disabled:opacity-50"
             >
               Charter an org
-            </Button>
+            </EntrarNoApp>
           </div>
         </div>
       </div>
