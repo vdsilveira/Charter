@@ -15,7 +15,7 @@ export default function PainelOrg({ org }: { org: string }) {
   const carregar = useCallback(async (): Promise<AgenteResumo[]> => {
     const r = await fetch(`/api/leaderboard/${org}`);
     const b = await r.json();
-    if (!r.ok) throw new Error(b?.error ?? "falha ao ler os agentes");
+    if (!r.ok) throw new Error(b?.error ?? "could not read the agents");
 
     const detalhes = await Promise.all(
       b.agents.map(async (a: { label: string; active: boolean }) => {
@@ -40,7 +40,7 @@ export default function PainelOrg({ org }: { org: string }) {
         body: JSON.stringify(a),
       });
       const b = await r.json();
-      if (!r.ok) throw new Error(b?.error ?? "falha ao adicionar");
+      if (!r.ok) throw new Error(b?.error ?? "could not add the agent");
       return b;
     },
     [org],
@@ -52,7 +52,7 @@ export default function PainelOrg({ org }: { org: string }) {
         method: "DELETE",
       });
       const b = await r.json();
-      if (!r.ok) throw new Error(b?.error ?? "falha ao remover");
+      if (!r.ok) throw new Error(b?.error ?? "could not remove the agent");
       return b;
     },
     [org],
@@ -61,13 +61,13 @@ export default function PainelOrg({ org }: { org: string }) {
   return (
     <main className="mx-auto max-w-3xl space-y-5 px-6 py-10">
       <header>
-        <p className="rotulo">administração</p>
+        <p className="rotulo">administration</p>
         <h1 className="font-serif text-3xl">{org}</h1>
         <p className="mt-1 text-sm text-slate">
-          Adicionar ou remover agentes altera a conta corporativa. Remover apaga a procuração
-          da conta — não é só um rótulo que muda.{" "}
+          Adding or removing agents changes the corporate account. Removing erases the power of
+          attorney from the account — it is not just a label that changes.{" "}
           <Link className="underline hover:text-seal" href={`/o/${org}`}>
-            Ver credencial pública
+            See the public credential
           </Link>
         </p>
       </header>

@@ -7,27 +7,27 @@
  */
 const MENSAGENS: Record<number, string> = {
   // ComplianceGate (nosso)
-  4000: "A procuração deste agente não está instalada.",
-  4001: "Esta procuração já estava instalada.",
-  4002: "Esta função está fora do escopo do agente.",
-  4003: "A contraparte não está verificada — acima do limiar é preciso claim KYB válido.",
-  4004: "Operação em formato que a política não sabe interpretar; recusada por segurança.",
-  4005: "Nenhum signatário autenticado.",
+  4000: "This agent's power of attorney is not installed.",
+  4001: "This power of attorney was already installed.",
+  4002: "This function is outside the agent's scope.",
+  4003: "The counterparty is not verified — above the threshold a valid KYB claim is required.",
+  4004: "Operation in a shape the policy cannot interpret; refused for safety.",
+  4005: "No authenticated signer.",
   // spending_limit (OpenZeppelin)
-  3221: "Valor acima da cota do agente no período.",
-  3223: "A política não autoriza este tipo de operação.",
-  3227: "A regra precisa ser escopada a um contrato-alvo.",
+  3221: "Amount above the agent's quota for the period.",
+  3223: "The policy does not authorize this kind of operation.",
+  3227: "The rule must be scoped to a target contract.",
   // OrgRegistry (nosso)
-  5000: "Já existe uma organização com esse nome.",
-  5001: "Organização não encontrada.",
-  5002: "Agente não encontrado nesta organização.",
-  5003: "Agente revogado.",
-  5004: "Só o fundador administra a própria organização.",
-  5005: "A organização precisa de ao menos um agente.",
+  5000: "An organization with that name already exists.",
+  5001: "Organization not found.",
+  5002: "Agent not found in this organization.",
+  5003: "Agent revoked.",
+  5004: "Only the founder administers their own organization.",
+  5005: "An organization needs at least one agent.",
   // Confidential / RWA
-  3602: "A contraparte não está autorizada pela política de identidade.",
-  321: "A conta não tem identidade registrada — falta claim KYB.",
-  302: "Conta congelada pelo emissor.",
+  3602: "The counterparty is not authorized by the identity policy.",
+  321: "The account has no registered identity — a KYB claim is missing.",
+  302: "Account frozen by the issuer.",
 };
 
 export function codigoDoErro(erro: unknown): number | null {
@@ -39,5 +39,5 @@ export function traduzirErro(erro: unknown): string {
   const codigo = codigoDoErro(erro);
   if (codigo && MENSAGENS[codigo]) return MENSAGENS[codigo];
   const texto = String((erro as Error)?.message ?? erro ?? "");
-  return texto || "Não foi possível completar a operação.";
+  return texto || "Could not complete the operation.";
 }

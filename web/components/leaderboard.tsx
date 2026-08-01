@@ -33,18 +33,18 @@ export default function Leaderboard({ carregar }: { carregar: () => Promise<Linh
   }, [carregar]);
 
   if (erro) {
-    return <p role="alert" className="text-sm text-deny">Não foi possível ler a cadeia: {erro}</p>;
+    return <p role="alert" className="text-sm text-deny">Could not read the chain: {erro}</p>;
   }
-  if (linhas === null) return <p className="text-sm text-slate">carregando…</p>;
+  if (linhas === null) return <p className="text-sm text-slate">loading…</p>;
 
   return (
     <table className="w-full text-sm">
       <thead className="text-left text-slate">
         <tr>
-          <th className="py-2 font-medium">agente</th>
-          <th className="py-2 font-medium">aprovadas</th>
-          <th className="py-2 font-medium">volume total</th>
-          <th className="py-2 font-medium">com contraparte verificada</th>
+          <th className="py-2 font-medium">agent</th>
+          <th className="py-2 font-medium">approved</th>
+          <th className="py-2 font-medium">total volume</th>
+          <th className="py-2 font-medium">with a verified counterparty</th>
         </tr>
       </thead>
       <tbody>
@@ -52,7 +52,7 @@ export default function Leaderboard({ carregar }: { carregar: () => Promise<Linh
           <tr key={a.label} className="border-t border-hairline">
             <td className="py-2">
               {a.label}{" "}
-              {!a.active && <Badge variant="alert">revogado</Badge>}
+              {!a.active && <Badge variant="alert">revoked</Badge>}
             </td>
             <td className="py-2">{a.opsOk}</td>
             <td className="py-2 text-slate">{a.volumeTotal}</td>

@@ -12,8 +12,8 @@ import ConstituirForm from "@/components/constituir-form";
 
 /** Preenche o mínimo para uma constituição válida. */
 async function preencher(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/nome da organização/i), "alphafund");
-  await user.type(screen.getByLabelText(/rótulo/i), "trader");
+  await user.type(screen.getByLabelText(/organization name/i), "alphafund");
+  await user.type(screen.getByLabelText(/label/i), "trader");
 }
 
 describe("constituição da organização", () => {
@@ -22,10 +22,10 @@ describe("constituição da organização", () => {
     const onSubmit = vi.fn();
     render(<ConstituirForm onSubmit={onSubmit} />);
 
-    await user.click(screen.getByRole("button", { name: /constituir/i }));
+    await user.click(screen.getByRole("button", { name: /charter/i }));
 
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent(/nome/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/name/i);
   });
 
   it("exige ao menos um agente", async () => {
@@ -33,11 +33,11 @@ describe("constituição da organização", () => {
     const onSubmit = vi.fn();
     render(<ConstituirForm onSubmit={onSubmit} agentesIniciais={[]} />);
 
-    await user.type(screen.getByLabelText(/nome da organização/i), "alphafund");
-    await user.click(screen.getByRole("button", { name: /constituir/i }));
+    await user.type(screen.getByLabelText(/organization name/i), "alphafund");
+    await user.click(screen.getByRole("button", { name: /charter/i }));
 
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent(/agente/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/agent/i);
   });
 
   it("envia nome, agentes e escopos ao constituir", async () => {
@@ -46,7 +46,7 @@ describe("constituição da organização", () => {
     render(<ConstituirForm onSubmit={onSubmit} />);
 
     await preencher(user);
-    await user.click(screen.getByRole("button", { name: /constituir/i }));
+    await user.click(screen.getByRole("button", { name: /charter/i }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     const arg = onSubmit.mock.calls[0][0];
@@ -65,8 +65,8 @@ describe("constituição da organização", () => {
       />,
     );
 
-    await user.type(screen.getByLabelText(/nome da organização/i), "alphafund");
-    await user.click(screen.getByRole("button", { name: /constituir/i }));
+    await user.type(screen.getByLabelText(/organization name/i), "alphafund");
+    await user.click(screen.getByRole("button", { name: /charter/i }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0].agentes[0].allowedFns).toEqual([]);
@@ -81,7 +81,7 @@ describe("constituição da organização", () => {
     render(<ConstituirForm onSubmit={onSubmit} />);
 
     await preencher(user);
-    await user.click(screen.getByRole("button", { name: /constituir/i }));
+    await user.click(screen.getByRole("button", { name: /charter/i }));
 
     // O jurado precisa poder conferir na hora: hash visível e link clicável.
     expect(await screen.findByText(/CC26I3KF/)).toBeInTheDocument();
@@ -95,12 +95,12 @@ describe("constituição da organização", () => {
     render(<ConstituirForm onSubmit={onSubmit} />);
 
     await preencher(user);
-    await user.click(screen.getByRole("button", { name: /constituir/i }));
+    await user.click(screen.getByRole("button", { name: /charter/i }));
 
     const alerta = await screen.findByRole("alert");
     // 5000 = NameTaken. Quem opera precisa saber que o nome já existe, não ver
     // um código de contrato cru.
-    expect(alerta).toHaveTextContent(/já existe|nome/i);
+    expect(alerta).toHaveTextContent(/already exists/i);
   });
 
   it("desabilita o botão enquanto a transação está em voo", async () => {
@@ -110,7 +110,7 @@ describe("constituição da organização", () => {
     render(<ConstituirForm onSubmit={onSubmit} />);
 
     await preencher(user);
-    const botao = screen.getByRole("button", { name: /constituir/i });
+    const botao = screen.getByRole("button", { name: /charter/i });
     await user.click(botao);
 
     // Sem isso, dois cliques nervosos viram duas organizações.

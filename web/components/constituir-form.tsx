@@ -40,7 +40,7 @@ async function submitPadrao(c: Constituicao) {
     body: JSON.stringify(c),
   });
   const body = await res.json();
-  if (!res.ok) throw new Error(body?.error ?? "falha ao constituir");
+  if (!res.ok) throw new Error(body?.error ?? "could not charter the organization");
   return body as { hash: string; account: string };
 }
 
@@ -77,15 +77,15 @@ export default function ConstituirForm({
   async function constituir() {
     setErro(null);
     if (!org.trim()) {
-      setErro("Informe o nome da organização.");
+      setErro("Enter the organization name.");
       return;
     }
     if (agentes.length === 0) {
-      setErro("A organização precisa de ao menos um agente.");
+      setErro("An organization needs at least one agent.");
       return;
     }
     if (agentes.some((a) => !a.label.trim())) {
-      setErro("Todo agente precisa de um rótulo.");
+      setErro("Every agent needs a label.");
       return;
     }
 
@@ -102,10 +102,10 @@ export default function ConstituirForm({
   return (
     <main className="mx-auto max-w-3xl space-y-5 px-6 py-10">
       <header>
-        <p className="rotulo">nova organização</p>
-        <h1 className="font-serif text-3xl">Constituir organização</h1>
+        <p className="rotulo">new organization</p>
+        <h1 className="font-serif text-3xl">Charter an organization</h1>
         <p className="mt-1 text-sm text-slate">
-          Uma transação cria a conta corporativa e a procuração de cada agente.
+          One transaction creates the corporate account and every agent&apos;s power of attorney.
         </p>
       </header>
 
@@ -113,10 +113,10 @@ export default function ConstituirForm({
         <Card>
           <CardContent className="flex items-baseline justify-between gap-4 pt-5">
             <div>
-              <p className="text-sm font-medium">Taxa de constituição</p>
+              <p className="text-sm font-medium">Chartering fee</p>
               <p className="text-xs text-slate">
-                Cobrada na mesma transação que cria a organização — não há como constituir sem
-                pagar, nem pagar sem constituir.
+                Charged in the same transaction that creates the organization — there is no way to
+                charter without paying, or to pay without chartering.
               </p>
             </div>
             <p className="whitespace-nowrap text-lg font-semibold">{emXlm(taxa)}</p>
@@ -126,12 +126,12 @@ export default function ConstituirForm({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Organização</CardTitle>
-          <CardDescription>O nome é único e imutável.</CardDescription>
+          <CardTitle className="text-base">Organization</CardTitle>
+          <CardDescription>The name is unique and permanent.</CardDescription>
         </CardHeader>
         <CardContent>
           <label className="block text-sm">
-            <span className="mb-1 block text-slate">Nome da organização</span>
+            <span className="mb-1 block text-slate">Organization name</span>
             <Input value={org} onChange={(e) => setOrg(e.target.value)} placeholder="alphafund" />
           </label>
         </CardContent>
@@ -140,18 +140,18 @@ export default function ConstituirForm({
       {agentes.map((a, i) => (
         <Card key={i}>
           <CardHeader>
-            <CardTitle className="text-base">Agente {i + 1}</CardTitle>
+            <CardTitle className="text-base">Agent {i + 1}</CardTitle>
             <CardDescription>
-              Escopo vazio significa um agente que não move valor — é o caso do auditor.
+              An empty scope means an agent that moves no value — the auditor, for instance.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-3">
             <label className="block text-sm">
-              <span className="mb-1 block text-slate">Rótulo</span>
+              <span className="mb-1 block text-slate">Label</span>
               <Input value={a.label} onChange={(e) => atualizar(i, "label", e.target.value)} placeholder="trader" />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-slate">Funções permitidas</span>
+              <span className="mb-1 block text-slate">Allowed functions</span>
               <Input
                 value={a.allowedFns.join(", ")}
                 onChange={(e) => atualizar(i, "allowedFns", e.target.value)}
@@ -159,7 +159,7 @@ export default function ConstituirForm({
               />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-slate">Limiar de KYB</span>
+              <span className="mb-1 block text-slate">KYB threshold</span>
               <Input
                 value={a.kybThreshold}
                 onChange={(e) => atualizar(i, "kybThreshold", e.target.value)}
@@ -172,13 +172,13 @@ export default function ConstituirForm({
 
       <div className="flex items-center gap-3">
         <Button onClick={constituir} disabled={enviando}>
-          {enviando ? "Constituindo…" : "Constituir organização"}
+          {enviando ? "Chartering…" : "Charter organization"}
         </Button>
         <Button
           variant="ghost"
           onClick={() => setAgentes((a) => [...a, { label: "", allowedFns: [], kybThreshold: "0" }])}
         >
-          Adicionar agente
+          Add agent
         </Button>
       </div>
 
@@ -191,7 +191,7 @@ export default function ConstituirForm({
       {feito && (
         <Card>
           <CardContent className="space-y-2 pt-5 text-sm">
-            <p className="font-medium text-ok">Organização constituída.</p>
+            <p className="font-medium text-ok">Organization chartered.</p>
             <p className="break-all font-mono text-xs">{feito.account}</p>
             <a
               className="underline"
@@ -199,7 +199,7 @@ export default function ConstituirForm({
               target="_blank"
               rel="noreferrer"
             >
-              ver no explorer
+              view on the explorer
             </a>
           </CardContent>
         </Card>

@@ -13,31 +13,31 @@ export default function Home() {
       <section className="max-w-2xl">
         <p className="rotulo">Stellar · testnet</p>
         <h1 className="mt-3 font-serif text-4xl leading-[1.1] sm:text-5xl">
-          Procuração programável para organizações que operam por agentes.
+          Programmable power of attorney for organizations that operate through agents.
         </h1>
         <p className="mt-5 text-lg text-slate">
-          Um agente ou tem a chave inteira do tesouro, ou não transaciona. Aqui ele recebe
-          uma procuração: teto, escopo e prazo — verificados pela rede, não por um servidor
-          em que a contraparte precise confiar.
+          An agent either holds the whole treasury key or cannot transact at all. Here it gets a
+          power of attorney instead: ceiling, scope and term — enforced by the network, not by a
+          server the counterparty has to trust.
         </p>
       </section>
 
       <section className="mt-14 grid gap-px overflow-hidden rounded-lg border border-hairline bg-hairline sm:grid-cols-3">
         {[
           {
-            titulo: "Pagamento do agente",
-            texto: "Cota, escopo de função e claim da contraparte, aplicados on-chain.",
-            marca: "público",
+            titulo: "Agent payment",
+            texto: "Quota, function scope and counterparty claim, enforced on-chain.",
+            marca: "public",
           },
           {
-            titulo: "Tesouraria",
-            texto: "Folha e liquidação com valores ocultos, abertos ao auditor designado.",
-            marca: "confidencial",
+            titulo: "Treasury",
+            texto: "Payroll and settlement with hidden amounts, open to the designated auditor.",
+            marca: "confidential",
           },
           {
-            titulo: "Cotas do fundo",
-            texto: "Ativo que só circula entre investidores com claim válido.",
-            marca: "regulado",
+            titulo: "Fund shares",
+            texto: "An asset that only circulates among investors holding a valid claim.",
+            marca: "regulated",
           },
         ].map((c) => (
           <article key={c.titulo} className="bg-surface p-6">
@@ -49,16 +49,16 @@ export default function Home() {
       </section>
 
       <p className="mt-8 max-w-2xl border-l-2 border-seal pl-4 text-sm text-slate">
-        As três consultam o <strong className="font-medium text-ink">mesmo registro de
-        identidade</strong>. É daí que vem a garantia: quem perde o claim deixa de receber
-        na operação seguinte, sem migrar fundos nem trocar contrato.
+        All three consult the <strong className="font-medium text-ink">same identity
+        registry</strong>. That is where the guarantee comes from: whoever loses the claim stops
+        receiving on the very next operation — no fund migration, no contract swap.
       </p>
 
       <nav className="mt-14 grid gap-4 sm:grid-cols-3">
         {[
-          { href: "/constituir", titulo: "Constituir organização", texto: "Conta corporativa e procurações em uma transação." },
-          { href: "/console", titulo: "Console do operador", texto: "Decisões, ranking e pagamento com previsão de recusa." },
-          { href: "/o/alphafund", titulo: "Credencial pública", texto: "O que a contraparte lê antes de negociar. Sem carteira." },
+          { href: "/constituir", titulo: "Charter an organization", texto: "Corporate account and powers of attorney in one transaction." },
+          { href: "/console", titulo: "Operator console", texto: "Decisions, ranking and payment with the refusal predicted." },
+          { href: "/o/alphafund", titulo: "Public credential", texto: "What the counterparty reads before dealing. No wallet." },
         ].map((l) => (
           <Link
             key={l.href}

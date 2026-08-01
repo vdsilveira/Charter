@@ -69,15 +69,15 @@ export default function PainelAgentes({
   async function confirmarAdicao() {
     setErro(null);
     if (!label.trim()) {
-      setErro("Informe o rótulo do agente.");
+      setErro("Enter the agent label.");
       return;
     }
     if (!carteira.trim()) {
-      setErro("Informe a carteira do agente — a procuração é escrita para ela.");
+      setErro("Enter the agent wallet — the power of attorney is written to it.");
       return;
     }
     if (!StrKey.isValidEd25519PublicKey(carteira.trim())) {
-      setErro("Endereço inválido: uma carteira Stellar começa com G e tem 56 caracteres.");
+      setErro("Invalid address: a Stellar wallet starts with G and is 56 characters long.");
       return;
     }
 
@@ -118,14 +118,14 @@ export default function PainelAgentes({
     <Card>
       <CardHeader className="flex-row items-start justify-between space-y-0">
         <div>
-          <CardTitle className="text-base">Agentes de {org}</CardTitle>
+          <CardTitle className="text-base">Agents of {org}</CardTitle>
           <CardDescription>
-            Cada agente assina com a própria carteira. Você indica o endereço; a chave nunca
-            passa por aqui.
+            Each agent signs with its own wallet. You supply the address; the key never passes
+            through here.
           </CardDescription>
         </div>
         <Button size="sm" variant="outline" onClick={() => setAbrindo((v) => !v)}>
-          Adicionar agente
+          Add agent
         </Button>
       </CardHeader>
 
@@ -134,11 +134,11 @@ export default function PainelAgentes({
           <div className="space-y-3 rounded-lg border border-hairline bg-paper p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-sm">
-                <span className="mb-1 block text-slate">Rótulo</span>
+                <span className="mb-1 block text-slate">Label</span>
                 <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="tesoureiro" />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block text-slate">Carteira do agente</span>
+                <span className="mb-1 block text-slate">Agent wallet</span>
                 <Input
                   value={carteira}
                   onChange={(e) => setCarteira(e.target.value)}
@@ -147,25 +147,25 @@ export default function PainelAgentes({
                 />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block text-slate">Funções permitidas</span>
+                <span className="mb-1 block text-slate">Allowed functions</span>
                 <Input value={fns} onChange={(e) => setFns(e.target.value)} placeholder="transfer" />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block text-slate">Limiar de KYB</span>
+                <span className="mb-1 block text-slate">KYB threshold</span>
                 <Input value={limiar} onChange={(e) => setLimiar(e.target.value)} inputMode="numeric" />
               </label>
             </div>
             <p className="text-xs text-slate">
-              Deixe as funções em branco para um agente que não move valor — é o caso do auditor.
+              Leave the functions blank for an agent that moves no value — the auditor, for instance.
             </p>
             <Button size="sm" onClick={confirmarAdicao} disabled={ocupado}>
-              Adicionar
+              Add
             </Button>
           </div>
         )}
 
         {agentes === null ? (
-          <p className="text-sm text-slate">carregando…</p>
+          <p className="text-sm text-slate">loading…</p>
         ) : (
           <ul className="divide-y divide-hairline">
             {agentes.map((a) => (
@@ -173,16 +173,16 @@ export default function PainelAgentes({
                 <div>
                   <p className="font-medium">
                     {a.label}{" "}
-                    {!a.active && <Badge variant="alert">revogado</Badge>}
+                    {!a.active && <Badge variant="alert">revoked</Badge>}
                   </p>
                   <p className="text-sm text-slate">
                     {a.allowedFns.length ? (
                       <>
-                        pode <span className="font-mono text-xs">{a.allowedFns.join(", ")}</span>,
-                        exige KYB acima de {a.kybThreshold}
+                        may <span className="font-mono text-xs">{a.allowedFns.join(", ")}</span>,
+                        requires KYB above {a.kybThreshold}
                       </>
                     ) : (
-                      "não move valor — nenhuma função no escopo"
+                      "moves no value — no function in scope"
                     )}
                   </p>
                 </div>
@@ -190,17 +190,17 @@ export default function PainelAgentes({
                 {a.active &&
                   (confirmando === a.label ? (
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-slate">Tem certeza?</span>
+                      <span className="text-slate">Are you sure?</span>
                       <Button size="sm" onClick={() => confirmarRemocao(a.label)} disabled={ocupado}>
-                        Confirmar
+                        Confirm
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setConfirmando(null)}>
-                        Cancelar
+                        Cancel
                       </Button>
                     </div>
                   ) : (
                     <Button size="sm" variant="ghost" onClick={() => setConfirmando(a.label)}>
-                      Remover
+                      Remove
                     </Button>
                   ))}
               </li>

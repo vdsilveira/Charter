@@ -24,7 +24,7 @@ describe("taxa de constituição", () => {
 
   it("explica que a taxa sai na mesma transação", async () => {
     render(<ConstituirForm onSubmit={vi.fn()} taxa="50000000" />);
-    expect(await screen.findByText(/mesma transação/i)).toBeInTheDocument();
+    expect(await screen.findByText(/same transaction/i)).toBeInTheDocument();
   });
 
   it("constituição gratuita não fala em taxa", () => {
@@ -37,9 +37,9 @@ describe("taxa de constituição", () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error("User declined access"));
     render(<ConstituirForm onSubmit={onSubmit} taxa="50000000" />);
 
-    await user.type(screen.getByLabelText(/nome da organização/i), "acme");
-    await user.type(screen.getByLabelText(/rótulo/i), "trader");
-    await user.click(screen.getByRole("button", { name: /constituir/i }));
+    await user.type(screen.getByLabelText(/organization name/i), "acme");
+    await user.type(screen.getByLabelText(/label/i), "trader");
+    await user.click(screen.getByRole("button", { name: /charter/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/declin|recus/i);
   });
@@ -56,7 +56,7 @@ describe("painel de agentes", () => {
 
     expect(await screen.findByText("trader")).toBeInTheDocument();
     // O auditor não move valor — a lista tem de deixar isso explícito.
-    expect(screen.getByText(/não move valor|nenhuma função/i)).toBeInTheDocument();
+    expect(screen.getByText(/moves no value|no function in scope/i)).toBeInTheDocument();
   });
 
   it("adiciona agente indicando a carteira dele", async () => {
@@ -66,10 +66,10 @@ describe("painel de agentes", () => {
       <PainelAgentes org="alphafund" carregar={async () => agentes} adicionar={adicionar} />,
     );
 
-    await user.click(await screen.findByRole("button", { name: /adicionar agente/i }));
-    await user.type(screen.getByLabelText(/rótulo/i), "tesoureiro");
-    await user.type(screen.getByLabelText(/carteira/i), CARTEIRA_AGENTE);
-    await user.click(screen.getByRole("button", { name: /^adicionar$/i }));
+    await user.click(await screen.findByRole("button", { name: /add agent/i }));
+    await user.type(screen.getByLabelText(/label/i), "tesoureiro");
+    await user.type(screen.getByLabelText(/wallet/i), CARTEIRA_AGENTE);
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
 
     await waitFor(() => expect(adicionar).toHaveBeenCalledTimes(1));
     const arg = adicionar.mock.calls[0][0];
@@ -85,12 +85,12 @@ describe("painel de agentes", () => {
       <PainelAgentes org="alphafund" carregar={async () => agentes} adicionar={adicionar} />,
     );
 
-    await user.click(await screen.findByRole("button", { name: /adicionar agente/i }));
-    await user.type(screen.getByLabelText(/rótulo/i), "tesoureiro");
-    await user.click(screen.getByRole("button", { name: /^adicionar$/i }));
+    await user.click(await screen.findByRole("button", { name: /add agent/i }));
+    await user.type(screen.getByLabelText(/label/i), "tesoureiro");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
 
     expect(adicionar).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent(/carteira/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/wallet/i);
   });
 
   it("recusa carteira em formato inválido", async () => {
@@ -100,14 +100,14 @@ describe("painel de agentes", () => {
       <PainelAgentes org="alphafund" carregar={async () => agentes} adicionar={adicionar} />,
     );
 
-    await user.click(await screen.findByRole("button", { name: /adicionar agente/i }));
-    await user.type(screen.getByLabelText(/rótulo/i), "tesoureiro");
-    await user.type(screen.getByLabelText(/carteira/i), "não é um endereço");
-    await user.click(screen.getByRole("button", { name: /^adicionar$/i }));
+    await user.click(await screen.findByRole("button", { name: /add agent/i }));
+    await user.type(screen.getByLabelText(/label/i), "tesoureiro");
+    await user.type(screen.getByLabelText(/wallet/i), "não é um endereço");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
 
     // Melhor barrar aqui do que gastar transação para a rede recusar.
     expect(adicionar).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent(/endereço|inválid/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/address|invalid/i);
   });
 
   it("remover pede confirmação — a procuração some da conta", async () => {
@@ -117,11 +117,11 @@ describe("painel de agentes", () => {
       <PainelAgentes org="alphafund" carregar={async () => agentes} remover={remover} />,
     );
 
-    await user.click((await screen.findAllByRole("button", { name: /remover/i }))[0]);
-    expect(await screen.findByText(/tem certeza/i)).toBeInTheDocument();
+    await user.click((await screen.findAllByRole("button", { name: /remove/i }))[0]);
+    expect(await screen.findByText(/are you sure/i)).toBeInTheDocument();
     expect(remover).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: /confirmar/i }));
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
     await waitFor(() => expect(remover).toHaveBeenCalledWith("trader"));
   });
 
@@ -133,7 +133,7 @@ describe("painel de agentes", () => {
       />,
     );
 
-    expect(await screen.findByText(/revogado/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /remover/i })).not.toBeInTheDocument();
+    expect(await screen.findByText(/revoked/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /remove/i })).not.toBeInTheDocument();
   });
 });

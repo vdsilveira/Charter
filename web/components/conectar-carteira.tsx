@@ -8,9 +8,14 @@ import { freighter, redeCorreta, type FreighterApi } from "@/lib/carteira";
 /**
  * Conexão da carteira do fundador.
  *
- * Aparece só onde alguém precisa assinar. A ausência do Freighter é situação
- * esperada — a maioria dos visitantes não tem a extensão, e consultar credencial
- * não precisa dela — então vira instrução, nunca exceção.
+ * Ao montar, pergunta ao Freighter se este site **já** tem permissão: quem
+ * entrou pela porta do site acabou de autorizar, e oferecer "Connect wallet" de
+ * novo faz parecer que a conexão não pegou. `getAddress` responde isso sem
+ * abrir pop-up — endereço vazio significa instalado, porém sem permissão.
+ *
+ * A ausência do Freighter é situação esperada — a maioria dos visitantes não
+ * tem a extensão, e consultar credencial não precisa dela — então vira
+ * instrução, nunca exceção.
  */
 export default function ConectarCarteira({
   api,
@@ -29,7 +34,22 @@ export default function ConectarCarteira({
       try {
         const wallet = await freighter(api);
         const r = await wallet.isConnected();
-        if (vivo) setDisponivel(Boolean(r?.isConnected));
+        if (!vivo) return;
+        setDisponivel(Boolean(r?.isConnected));
+        if (!r?.isConnected) return;
+
+        const { address } = (await wallet.getAddress?.()) ?? {};
+        if (!vivo || !address) return;
+
+        setEndereco(address);
+        onConectar?.(address);
+
+        // Rede errada com carteira já conectada é o caso mais traiçoeiro: tudo
+        // parece pronto até a assinatura falhar. O aviso fica junto do endereço.
+        const { network } = (await wallet.getNetwork?.()) ?? {};
+        if (vivo && !redeCorreta(network)) {
+          setErro(`Wallet is on ${network ?? "an unknown network"} — switch it to testnet.`);
+        }
       } catch {
         if (vivo) setDisponivel(false);
       }
@@ -37,6 +57,9 @@ export default function ConectarCarteira({
     return () => {
       vivo = false;
     };
+    // `onConectar` fora das dependências de propósito: um callback inline do pai
+    // remontaria a sonda a cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api]);
 
   async function conectar() {
@@ -45,7 +68,7 @@ export default function ConectarCarteira({
       const wallet = await freighter(api);
       const acesso = await wallet.requestAccess?.();
       if (acesso?.error || !acesso?.address) {
-        setErro(acesso?.error ?? "acesso recusado na carteira");
+        setErro(acesso?.error ?? "Wallet access declined.");
         return;
       }
 
@@ -53,7 +76,7 @@ export default function ConectarCarteira({
       // avisar enquanto o usuário ainda está olhando para o botão.
       const { network } = (await wallet.getNetwork?.()) ?? {};
       if (!redeCorreta(network)) {
-        setErro(`A carteira está em ${network ?? "rede desconhecida"} — troque para testnet.`);
+        setErro(`Wallet is on ${network ?? "an unknown network"} — switch it to testnet.`);
         return;
       }
 
@@ -64,35 +87,42 @@ export default function ConectarCarteira({
     }
   }
 
-  if (disponivel === null) return <span className="text-sm text-slate">verificando…</span>;
+  if (disponivel === null) return <span className="text-sm text-slate">checking…</span>;
 
   if (!disponivel) {
     return (
       <p className="max-w-xs text-sm text-slate">
-        Freighter não encontrado.{" "}
+        Freighter not found.{" "}
         <a className="underline" href="https://freighter.app/" target="_blank" rel="noreferrer">
-          Instalar
+          Install it
         </a>{" "}
-        para assinar como fundador. Consultar credencial não precisa de carteira.
+        to sign as the founder. Reading a credential needs no wallet.
       </p>
     );
   }
 
   if (endereco) {
     return (
-      <span
-        className="rounded-full bg-oksoft px-3 py-1 font-mono text-sm text-ok"
-        title={endereco}
-      >
-        {encurtar(endereco)}
-      </span>
+      <div className="text-right">
+        <span
+          className="rounded-full bg-oksoft px-3 py-1 font-mono text-sm text-ok"
+          title={endereco}
+        >
+          {encurtar(endereco)}
+        </span>
+        {erro && (
+          <p role="alert" className="mt-1 text-sm text-deny">
+            {erro}
+          </p>
+        )}
+      </div>
     );
   }
 
   return (
     <div className="space-y-2 text-right">
       <Button variant="outline" size="sm" onClick={conectar}>
-        Conectar carteira
+        Connect wallet
       </Button>
       {erro && (
         <p role="alert" className="text-sm text-deny">

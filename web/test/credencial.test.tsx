@@ -49,7 +49,7 @@ describe("credencial do agente", () => {
     render(<CredencialAgente credencial={credencial} />);
     // Omitir seria pior que informar: a contraparte precisa saber que a
     // organização não tem claim, e decidir por conta própria.
-    expect(screen.getByText(/não verificad/i)).toBeInTheDocument();
+    expect(screen.getByText(/not verified/i)).toBeInTheDocument();
   });
 
   it("agente com escopo vazio aparece como incapaz de mover valor", () => {
@@ -58,12 +58,12 @@ describe("credencial do agente", () => {
         credencial={{ ...credencial, label: "auditor", policy: { ...credencial.policy, allowedFns: [] } }}
       />,
     );
-    expect(screen.getByText(/não pode invocar|nenhuma função/i)).toBeInTheDocument();
+    expect(screen.getByText(/no function in scope|moves no value/i)).toBeInTheDocument();
   });
 
   it("agente revogado é marcado, não apagado", () => {
     render(<CredencialAgente credencial={{ ...credencial, active: false }} />);
-    expect(screen.getByText(/revogado/i)).toBeInTheDocument();
+    expect(screen.getByText(/revoked/i)).toBeInTheDocument();
     // Continua mostrando os poderes de antes: revogado ≠ inexistente.
     expect(screen.getByText(/transfer/)).toBeInTheDocument();
   });

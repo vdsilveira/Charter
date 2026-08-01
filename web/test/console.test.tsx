@@ -32,17 +32,17 @@ describe("feed de decisões", () => {
     const linhas = await screen.findAllByRole("row");
     // A distinção precisa estar na tela: é o que separa volume que conta de
     // volume que não conta.
-    expect(linhas.some((l) => /verificada/i.test(l.textContent ?? ""))).toBe(true);
+    expect(linhas.some((l) => /verified/i.test(l.textContent ?? ""))).toBe(true);
   });
 
   it("estado vazio explica, em vez de mostrar tabela vazia", async () => {
     render(<Feed carregar={async () => []} />);
-    expect(await screen.findByText(/nenhuma decisão/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no decisions/i)).toBeInTheDocument();
   });
 
   it("falha de leitura aparece como erro, não como lista vazia", async () => {
     render(<Feed carregar={async () => { throw new Error("rpc caiu"); }} />);
-    expect(await screen.findByRole("alert")).toHaveTextContent(/rpc caiu|não foi possível/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/rpc caiu|could not read/i);
   });
 });
 
@@ -68,7 +68,7 @@ describe("leaderboard", () => {
         carregar={async () => [{ ...agentes[1], active: false }]}
       />,
     );
-    expect(await screen.findByText(/revogado/i)).toBeInTheDocument();
+    expect(await screen.findByText(/revoked/i)).toBeInTheDocument();
   });
 });
 
@@ -82,12 +82,12 @@ describe("simulação prévia do pagamento", () => {
     const enviar = vi.fn();
 
     render(<PagamentoForm simular={simular} enviar={enviar} />);
-    await user.type(screen.getByLabelText(/destinatário/i), "GA…SEMCLAIM");
-    await user.type(screen.getByLabelText(/valor/i), "900");
-    await user.click(screen.getByRole("button", { name: /simular/i }));
+    await user.type(screen.getByLabelText(/recipient/i), "GA…SEMCLAIM");
+    await user.type(screen.getByLabelText(/amount/i), "900");
+    await user.click(screen.getByRole("button", { name: /simulate/i }));
 
     // O motivo, traduzido: "4003" não diz nada a quem opera.
-    expect(await screen.findByRole("alert")).toHaveTextContent(/contraparte.*não.*verificad/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/counterparty is not verified/i);
     expect(enviar).not.toHaveBeenCalled();
   });
 
@@ -97,12 +97,12 @@ describe("simulação prévia do pagamento", () => {
     const enviar = vi.fn();
 
     render(<PagamentoForm simular={simular} enviar={enviar} />);
-    await user.type(screen.getByLabelText(/destinatário/i), "GA…SEMCLAIM");
-    await user.type(screen.getByLabelText(/valor/i), "900");
-    await user.click(screen.getByRole("button", { name: /simular/i }));
+    await user.type(screen.getByLabelText(/recipient/i), "GA…SEMCLAIM");
+    await user.type(screen.getByLabelText(/amount/i), "900");
+    await user.click(screen.getByRole("button", { name: /simulate/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /enviar/i })).toBeDisabled(),
+      expect(screen.getByRole("button", { name: /send/i })).toBeDisabled(),
     );
   });
 
@@ -112,12 +112,12 @@ describe("simulação prévia do pagamento", () => {
     const enviar = vi.fn().mockResolvedValue({ hash: "ok123" });
 
     render(<PagamentoForm simular={simular} enviar={enviar} />);
-    await user.type(screen.getByLabelText(/destinatário/i), "GA…COMCLAIM");
-    await user.type(screen.getByLabelText(/valor/i), "100");
-    await user.click(screen.getByRole("button", { name: /simular/i }));
+    await user.type(screen.getByLabelText(/recipient/i), "GA…COMCLAIM");
+    await user.type(screen.getByLabelText(/amount/i), "100");
+    await user.click(screen.getByRole("button", { name: /simulate/i }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /enviar/i })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: /enviar/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /send/i })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: /send/i }));
     await waitFor(() => expect(enviar).toHaveBeenCalledTimes(1));
   });
 
@@ -129,10 +129,10 @@ describe("simulação prévia do pagamento", () => {
     });
 
     render(<PagamentoForm simular={simular} enviar={vi.fn()} />);
-    await user.type(screen.getByLabelText(/destinatário/i), "GA…QUALQUER");
-    await user.type(screen.getByLabelText(/valor/i), "999999");
-    await user.click(screen.getByRole("button", { name: /simular/i }));
+    await user.type(screen.getByLabelText(/recipient/i), "GA…QUALQUER");
+    await user.type(screen.getByLabelText(/amount/i), "999999");
+    await user.click(screen.getByRole("button", { name: /simulate/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/cota|limite/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/quota|limit/i);
   });
 });

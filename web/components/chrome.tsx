@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import ConectarCarteira from "@/components/conectar-carteira";
 
 const NAV = [
-  { href: "/constituir", texto: "Constituir" },
+  { href: "/constituir", texto: "Charter" },
   { href: "/console", texto: "Console" },
-  { href: "/o/alphafund", texto: "Credencial" },
+  { href: "/o/alphafund", texto: "Credential" },
 ];
 
 /**
@@ -25,7 +25,7 @@ export default function Chrome() {
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-8 gap-y-3 px-6 py-3">
         <Link href="/" className="flex items-baseline gap-2">
           <span className="font-serif text-lg font-semibold tracking-tight">Charter</span>
-          <span className="rotulo hidden sm:inline">registro de organizações</span>
+          <span className="rotulo hidden sm:inline">organization registry</span>
         </Link>
 
         <nav className="flex items-center gap-1 text-sm">

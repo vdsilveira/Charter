@@ -33,36 +33,36 @@ export default function CredencialAgente({ credencial: c }: { credencial: Creden
           {c.label}
           <span className="ml-2 font-mono text-xs font-normal text-slate/70">*{c.org}</span>
         </CardTitle>
-        {c.active ? <Badge variant="ok">ativo</Badge> : <Badge variant="alert">revogado</Badge>}
+        {c.active ? <Badge variant="ok">active</Badge> : <Badge variant="alert">revoked</Badge>}
       </CardHeader>
 
       <CardContent className="space-y-4">
         <section>
-          <h4 className="mb-1 text-xs uppercase tracking-wide text-slate">procuração</h4>
+          <h4 className="mb-1 text-xs uppercase tracking-wide text-slate">power of attorney</h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-slate">pode invocar</dt>
+            <dt className="text-slate">may invoke</dt>
             <dd>
               {c.policy.allowedFns.length ? (
                 <span className="font-mono text-xs">{c.policy.allowedFns.join(", ")}</span>
               ) : (
                 <span className="text-slate">
-                  não pode invocar nenhuma função — não move valor
+                  no function in scope — this agent moves no value
                 </span>
               )}
             </dd>
-            <dt className="text-slate">exige KYB acima de</dt>
+            <dt className="text-slate">requires KYB above</dt>
             <dd>{c.policy.kybThreshold}</dd>
           </dl>
         </section>
 
         <section>
-          <h4 className="mb-1 text-xs uppercase tracking-wide text-slate">conduta</h4>
+          <h4 className="mb-1 text-xs uppercase tracking-wide text-slate">conduct</h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-slate">operações aprovadas</dt>
+            <dt className="text-slate">approved operations</dt>
             <dd>{c.conduct.opsOk}</dd>
-            <dt className="text-slate">volume total</dt>
+            <dt className="text-slate">total volume</dt>
             <dd className="text-slate">{c.conduct.volumeTotal}</dd>
-            <dt className="text-slate">com contraparte verificada</dt>
+            <dt className="text-slate">with a verified counterparty</dt>
             <dd data-testid="volume-attested" className="font-semibold">
               {c.conduct.volumeAttested}
             </dd>
@@ -71,13 +71,13 @@ export default function CredencialAgente({ credencial: c }: { credencial: Creden
 
         <p className="text-sm">
           {c.orgVerified ? (
-            <Badge variant="ok">organização verificada</Badge>
+            <Badge variant="ok">organization verified</Badge>
           ) : (
-            <Badge variant="muted">organização não verificada</Badge>
+            <Badge variant="muted">organization not verified</Badge>
           )}
         </p>
 
-        <p className="break-all font-mono text-xs text-slate/70">assina por {c.account}</p>
+        <p className="break-all font-mono text-xs text-slate/70">signs as {c.account}</p>
       </CardContent>
     </Card>
   );

@@ -17,6 +17,8 @@ const ENDERECO = "GBBH2YATAUUFYAYUGAHLKOA4LFFHASVU7SUADEE5PFON7T33URAUBZHJ";
 function apiFreighter(over: Record<string, unknown> = {}) {
   return {
     isConnected: async () => ({ isConnected: true }),
+    // Instalado, mas este site ainda não tem permissão.
+    getAddress: async () => ({ address: "" }),
     requestAccess: async () => ({ address: ENDERECO }),
     getNetwork: async () => ({ network: "TESTNET", networkPassphrase: "Test SDF Network ; September 2015" }),
     signTransaction: async () => ({ signedTxXdr: "AAAA…assinada" }),
@@ -29,14 +31,14 @@ describe("conexão de carteira", () => {
     render(<ConectarCarteira api={{ isConnected: async () => ({ isConnected: false }) }} />);
 
     expect(await screen.findByText(/freighter/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /instalar/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /install/i })).toBeInTheDocument();
   });
 
   it("conecta e mostra o endereço do fundador", async () => {
     const user = userEvent.setup();
     render(<ConectarCarteira api={apiFreighter()} />);
 
-    await user.click(await screen.findByRole("button", { name: /conectar/i }));
+    await user.click(await screen.findByRole("button", { name: /connect/i }));
     expect(await screen.findByText(/GBBH2YAT/)).toBeInTheDocument();
   });
 
@@ -44,7 +46,7 @@ describe("conexão de carteira", () => {
     const user = userEvent.setup();
     render(<ConectarCarteira api={apiFreighter({ requestAccess: async () => ({ error: "User declined access" }) })} />);
 
-    await user.click(await screen.findByRole("button", { name: /conectar/i }));
+    await user.click(await screen.findByRole("button", { name: /connect/i }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/recus|declin/i));
   });
 
@@ -56,9 +58,39 @@ describe("conexão de carteira", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("button", { name: /conectar/i }));
+    await user.click(await screen.findByRole("button", { name: /connect/i }));
     // Deixar passar seria pedir para o usuário assinar na rede errada.
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/testnet/i));
+  });
+
+  it("já autorizado, mostra o endereço sem pedir conexão de novo", async () => {
+    const onConectar = vi.fn();
+    render(
+      <ConectarCarteira
+        api={apiFreighter({ getAddress: async () => ({ address: ENDERECO }) })}
+        onConectar={onConectar}
+      />,
+    );
+
+    // Quem entrou pela porta do site acabou de autorizar; oferecer o botão de
+    // novo faz parecer que a conexão não pegou.
+    expect(await screen.findByText(/GBBH2YAT/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /connect/i })).not.toBeInTheDocument();
+    await waitFor(() => expect(onConectar).toHaveBeenCalledWith(ENDERECO));
+  });
+
+  it("já autorizado na rede errada avisa em vez de parecer pronto", async () => {
+    render(
+      <ConectarCarteira
+        api={apiFreighter({
+          getAddress: async () => ({ address: ENDERECO }),
+          getNetwork: async () => ({ network: "PUBLIC" }),
+        })}
+      />,
+    );
+
+    // Tudo parece pronto até a assinatura falhar — o aviso precisa vir antes.
+    expect(await screen.findByRole("alert")).toHaveTextContent(/testnet/i);
   });
 
   it("informa o endereço conectado a quem precisa assinar", async () => {
@@ -66,7 +98,7 @@ describe("conexão de carteira", () => {
     const onConectar = vi.fn();
     render(<ConectarCarteira api={apiFreighter()} onConectar={onConectar} />);
 
-    await user.click(await screen.findByRole("button", { name: /conectar/i }));
+    await user.click(await screen.findByRole("button", { name: /connect/i }));
     await waitFor(() => expect(onConectar).toHaveBeenCalledWith(ENDERECO));
   });
 });

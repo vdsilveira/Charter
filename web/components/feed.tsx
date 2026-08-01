@@ -54,15 +54,15 @@ export default function Feed({
   if (erro) {
     return (
       <p role="alert" className="rounded-md bg-denysoft px-3 py-2 text-sm text-deny">
-        Não foi possível ler a cadeia: {erro}
+        Could not read the chain: {erro}
       </p>
     );
   }
-  if (linhas === null) return <p className="text-sm text-slate">carregando…</p>;
+  if (linhas === null) return <p className="text-sm text-slate">loading…</p>;
   if (linhas.length === 0) {
     return (
       <p className="text-sm text-slate">
-        Nenhuma decisão registrada ainda. Cada operação aprovada aparece aqui.
+        No decisions recorded yet. Every approved operation shows up here.
       </p>
     );
   }
@@ -71,10 +71,10 @@ export default function Feed({
     <table className="w-full text-sm">
       <thead className="text-left text-slate">
         <tr>
-          <th className="py-2 font-medium">agente</th>
-          <th className="py-2 font-medium">função</th>
-          <th className="py-2 font-medium">valor</th>
-          <th className="py-2 font-medium">contraparte</th>
+          <th className="py-2 font-medium">agent</th>
+          <th className="py-2 font-medium">function</th>
+          <th className="py-2 font-medium">amount</th>
+          <th className="py-2 font-medium">counterparty</th>
           <th className="py-2 font-medium">tx</th>
         </tr>
       </thead>
@@ -86,9 +86,9 @@ export default function Feed({
             <td className="py-2">{d.amount}</td>
             <td className="py-2">
               {d.counterpartyVerified ? (
-                <Badge variant="ok">verificada</Badge>
+                <Badge variant="ok">verified</Badge>
               ) : (
-                <Badge variant="muted">não verificada</Badge>
+                <Badge variant="muted">not verified</Badge>
               )}
             </td>
             <td className="py-2 font-mono text-xs text-slate">{encurtar(d.tx, 6)}</td>

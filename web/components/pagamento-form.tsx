@@ -65,7 +65,7 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="mb-1 block text-slate">Destinatário</span>
+          <span className="mb-1 block text-slate">Recipient</span>
           <Input
             value={destinatario}
             onChange={(e) => {
@@ -76,7 +76,7 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
           />
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block text-slate">Valor</span>
+          <span className="mb-1 block text-slate">Amount</span>
           <Input
             value={valor}
             onChange={(e) => {
@@ -91,32 +91,32 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
 
       <div className="flex items-center gap-2">
         <Button variant="outline" onClick={aoSimular} disabled={ocupado}>
-          Simular
+          Simulate
         </Button>
         <Button onClick={aoEnviar} disabled={!podeEnviar}>
-          Enviar
+          Send
         </Button>
         {previsao?.wouldSucceed && !hash && (
-          <span className="text-sm text-ok">a rede aprovaria esta operação</span>
+          <span className="text-sm text-ok">the network would approve this operation</span>
         )}
       </div>
 
       {motivo && (
         <p role="alert" className="rounded-md bg-denysoft px-3 py-2 text-sm text-deny">
-          Seria recusada: {motivo}
+          Would be refused: {motivo}
         </p>
       )}
 
       {hash && (
         <p className="rounded-md bg-oksoft px-3 py-2 text-sm text-ok">
-          Liquidado —{" "}
+          Settled —{" "}
           <a
             className="underline"
             href={`https://stellar.expert/explorer/testnet/tx/${hash}`}
             target="_blank"
             rel="noreferrer"
           >
-            ver no explorer
+            view on the explorer
           </a>
         </p>
       )}
