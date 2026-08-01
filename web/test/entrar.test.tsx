@@ -1,13 +1,11 @@
 /**
  * Entrada na aplicação a partir do site.
  *
- * Os CTAs levam a telas onde se assina. Mandar o visitante para lá sem carteira
- * produz o pior roteiro possível: ele preenche o formulário inteiro e só
- * descobre no fim que não tem como assinar.
- *
- * Quando já há carteira autorizada, o clique navega direto — parar alguém que
- * já está pronto é atrito à toa. Quando não há, a página escurece e uma caixa
- * pede a conexão: o visitante vê o que está sendo pedido, e por quê.
+ * Os CTAs levam a telas onde se assina. A caixa aparece **sempre** — inclusive
+ * para quem já autorizou a carteira. A versão anterior passava direto nesse
+ * caso, e o efeito prático era indistinguível de não haver verificação
+ * nenhuma: o clique navegava num piscar. Um passo explícito custa um clique e
+ * elimina a dúvida sobre qual conta vai assinar.
  *
  * A credencial pública fica fora disso: quem consulta um agente ainda não é
  * cliente, e exigir carteira ali devolveria o problema que o produto resolve.
@@ -40,7 +38,7 @@ const clicarCta = (user: ReturnType<typeof userEvent.setup>, nome: RegExp) =>
   user.click(screen.getByRole("button", { name: nome }));
 
 describe("entrada na aplicação", () => {
-  it("com carteira já autorizada, navega sem interromper", async () => {
+  it("mesmo já autorizado, confirma antes de entrar", async () => {
     const user = userEvent.setup();
     const navegar = vi.fn();
     render(
@@ -51,8 +49,27 @@ describe("entrada na aplicação", () => {
 
     await clicarCta(user, /console/i);
 
+    // Navegar num piscar é indistinguível de não verificar nada.
+    const caixa = await screen.findByRole("dialog");
+    expect(caixa).toHaveTextContent(/GBBH2YAT/);
+    expect(navegar).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /continue/i }));
     await waitFor(() => expect(navegar).toHaveBeenCalledWith("/console"));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("mostra qual conta vai assinar", async () => {
+    const user = userEvent.setup();
+    render(
+      <EntrarNoApp destino="/constituir" api={apiAutorizada()} navegar={vi.fn()}>
+        Charter an org
+      </EntrarNoApp>,
+    );
+
+    await clicarCta(user, /charter an org/i);
+    // Quem tem várias contas na carteira precisa saber qual está ativa antes
+    // de constituir uma organização em nome dela.
+    expect(await screen.findByRole("dialog")).toHaveTextContent(/GBBH2YAT/);
   });
 
   it("sem autorização, abre a caixa de conexão em vez de navegar", async () => {

@@ -6,10 +6,11 @@ import { freighter, redeCorreta, type FreighterApi } from "@/lib/carteira";
 /**
  * Porta de entrada do site para a aplicação.
  *
- * Quem já autorizou a carteira passa direto — parar alguém que está pronto é
- * atrito à toa. Quem não autorizou vê a página escurecer e uma caixa explicando
- * para onde vai e por que a carteira é necessária, em vez de descobrir isso
- * depois de preencher um formulário inteiro.
+ * A caixa aparece **sempre**, inclusive para quem já autorizou. Deixar passar
+ * direto nesse caso era defensável em tese e ruim na prática: o clique navegava
+ * num piscar, sem sinal nenhum de que houve verificação. Um passo explícito
+ * custa um clique e, de quebra, mostra qual conta vai assinar — quem tem várias
+ * na carteira precisa saber disso antes de constituir uma organização.
  *
  * A distinção entre "instalado" e "autorizado" vem do próprio Freighter:
  * `getAddress` devolve endereço vazio enquanto o site não tiver permissão, e é
@@ -32,6 +33,8 @@ export default function EntrarNoApp({
 }) {
   const [caixaAberta, setCaixaAberta] = useState(false);
   const [semExtensao, setSemExtensao] = useState(false);
+  /** Endereço já autorizado, quando há: a caixa vira confirmação em vez de pedido. */
+  const [endereco, setEndereco] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -69,24 +72,12 @@ export default function EntrarNoApp({
       const wallet = await freighter(api);
 
       const { isConnected } = await wallet.isConnected();
-      if (!isConnected) {
-        setSemExtensao(true);
-        setCaixaAberta(true);
-        return;
-      }
+      setSemExtensao(!isConnected);
 
-      // Endereço não-vazio significa que este site já tem permissão.
-      const { address } = (await wallet.getAddress?.()) ?? {};
-      if (address) {
-        const motivo = await seguir(wallet);
-        if (motivo) {
-          setErro(motivo);
-          setCaixaAberta(true);
-        }
-        return;
-      }
-
-      setSemExtensao(false);
+      // Endereço não-vazio significa que este site já tem permissão: a caixa
+      // então só confirma a conta, sem abrir pop-up do Freighter.
+      const { address } = isConnected ? ((await wallet.getAddress?.()) ?? {}) : {};
+      setEndereco(address || null);
       setCaixaAberta(true);
     } catch (e) {
       setErro(String((e as Error)?.message ?? e));
@@ -101,11 +92,16 @@ export default function EntrarNoApp({
     setOcupado(true);
     try {
       const wallet = await freighter(api);
-      const acesso = await wallet.requestAccess?.();
-      if (acesso?.error || !acesso?.address) {
-        setErro(acesso?.error ?? "Wallet access declined.");
-        return;
+
+      // Quem já autorizou não precisa de um segundo pop-up só para confirmar.
+      if (!endereco) {
+        const acesso = await wallet.requestAccess?.();
+        if (acesso?.error || !acesso?.address) {
+          setErro(acesso?.error ?? "Wallet access declined.");
+          return;
+        }
       }
+
       const motivo = await seguir(wallet);
       if (motivo) setErro(motivo);
     } catch (e) {
@@ -142,7 +138,11 @@ export default function EntrarNoApp({
               Stellar testnet
             </p>
             <h2 id="titulo-conexao" className="mt-3 font-display text-2xl leading-tight">
-              {semExtensao ? "Freighter not found" : "Connect your wallet"}
+              {semExtensao
+                ? "Freighter not found"
+                : endereco
+                  ? "Continue as this account"
+                  : "Connect your wallet"}
             </h2>
 
             {semExtensao ? (
@@ -159,6 +159,17 @@ export default function EntrarNoApp({
                 to sign as the founder. Reading a public credential needs no wallet — you can
                 browse one without installing anything.
               </p>
+            ) : endereco ? (
+              <>
+                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                  This is the account that will sign on the next screen. Nothing is signed now.
+                </p>
+                {/* Quem tem várias contas na carteira precisa ver qual está
+                    ativa antes de constituir uma organização em nome dela. */}
+                <p className="mt-4 break-all rounded-md border border-foreground/15 bg-foreground/[0.03] px-3 py-2.5 font-mono text-[11px] leading-relaxed text-foreground/80">
+                  {endereco}
+                </p>
+              </>
             ) : (
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
                 You&apos;re about to open a screen where you sign: chartering an organization and
@@ -184,7 +195,11 @@ export default function EntrarNoApp({
                   disabled={ocupado}
                   className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-6 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
-                  {ocupado ? "Waiting for wallet…" : "Connect Freighter"}
+                  {ocupado
+                    ? "Waiting for wallet…"
+                    : endereco
+                      ? "Continue"
+                      : "Connect Freighter"}
                 </button>
               )}
               <button
