@@ -60,7 +60,19 @@ export default function PainelOrg({ org, api }: { org: string; api?: FreighterAp
   );
 
   const carregar = useCallback(async (): Promise<AgenteResumo[]> => {
-    const r = await fetch(`/api/leaderboard/${org}`);
+    // Os rótulos vêm do histórico da carteira: o registro não enumera agentes,
+    // e o padrão fixo que existia aqui (`trader,auditor`) escondia qualquer
+    // agente com nome próprio.
+    let rotulos = "";
+    if (fundador) {
+      const lista = await fetch(`/api/minhas-orgs?fundador=${encodeURIComponent(fundador)}`);
+      if (lista.ok) {
+        const { orgs } = await lista.json();
+        rotulos = (orgs ?? []).find((o: { org: string }) => o.org === org)?.agentes?.join(",") ?? "";
+      }
+    }
+
+    const r = await fetch(`/api/leaderboard/${org}${rotulos ? `?agents=${encodeURIComponent(rotulos)}` : ""}`);
     const b = await r.json();
     if (!r.ok) throw new Error(b?.error ?? "could not read the agents");
 
@@ -77,7 +89,7 @@ export default function PainelOrg({ org, api }: { org: string; api?: FreighterAp
       }),
     );
     return detalhes;
-  }, [org]);
+  }, [org, fundador]);
 
   const adicionar = useCallback(
     async (a: NovoAgente) =>

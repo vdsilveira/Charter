@@ -6,6 +6,7 @@ import ConectarCarteira from "@/components/conectar-carteira";
 
 const NAV = [
   { href: "/constituir", texto: "Charter" },
+  { href: "/orgs", texto: "My orgs" },
   { href: "/console", texto: "Console" },
   { href: "/o/alphafund", texto: "Credential" },
 ];

@@ -26,7 +26,8 @@ este arquivo diz **onde paramos**.
 | Taxa de constituição | ✅ | cofre `100000000000 → 100050000000` ao constituir |
 | Gestão de agentes | ⚠️ **bloqueado on-chain** | só passa em teste de contrato; ver §Auth fora da raiz |
 | Carteira Freighter | ✅ | rede validada antes de assinar |
-| Constituição assinada pelo fundador | ✅ | servidor monta, browser assina; 6 testes na testnet |
+| Constituição assinada pelo fundador | ✅ | `matrix` criada na testnet pela carteira do usuário |
+| Minhas organizações (`/orgs`) | ✅ | lista do histórico da conta; nome e agentes reais |
 | Domínio e subdomínio (SEP-2) | ✅ | `trader*charter.local` resolve na rede |
 | Docker x402 | ✅ | compose com vendedor, agente e app |
 | Layout do app | ✅ | sistema visual próprio, claro e escuro |
@@ -117,6 +118,35 @@ grafo seria o oposto do que compliance pede — resposta pronta para o Q&A.
    Com as duas: `docker compose up --build` e `docker compose run --rm agente`.
 3. **Notion do evento**: já lido e resumido acima.
 4. **MCP `stellar-raven`**: autenticar com `/mcp` → Authenticate.
+
+---
+
+## O registro não enumera — e por que `/orgs` lê o histórico
+
+`RegistryStorageKey` tem `Org(Symbol)` e `Agent(Symbol, Symbol)`: consulta por
+nome, nunca enumeração. Não há índice por fundador nem evento de criação. As
+consequências apareceram juntas quando a primeira organização foi criada pela
+interface:
+
+- quem constituía não reencontrava a própria organização — o console apontava
+  para `NEXT_PUBLIC_ORG ?? "alphafund"`;
+- os rótulos de agente eram um padrão fixo no código (`trader,auditor`), então
+  um agente chamado `Neo` não existia para a interface.
+
+`lib/minhas-orgs.ts` resolve sem tocar no contrato: toda constituição é uma
+invocação de `create_org` assinada pelo fundador, com nome e agentes nos
+argumentos. Basta reduzir as operações da conta no Horizon. Continua leitura da
+cadeia — o Horizon indexa o que o ledger já contém.
+
+O parser é puro e tem 9 testes; a busca fica separada. Ele acumula `add_agent`,
+desconta `remove_agent`, descarta transação revertida e ignora invocações de
+outros contratos — sem esse filtro, qualquer contrato com uma função de mesmo
+nome entraria na lista do usuário.
+
+**Limite honesto:** se o Horizon consultado tiver janela de retenção curta,
+organizações antigas somem da *descoberta*. Continuam existindo e acessíveis
+pelo nome. A correção definitiva é o registro emitir evento em `create_org` —
+vale juntar ao redeploy proposto abaixo.
 
 ---
 
@@ -331,6 +361,10 @@ wallet" de novo no Console.
   linguagens. O `.mjs` serve os scripts em Node puro; o `.ts`, as rotas do app.
   Se um mudar sem o outro, demo e aplicação divergem. Estão marcados como gêmeos
   no cabeçalho.
+- **`/console` ainda aponta para uma organização fixa** (`NEXT_PUBLIC_ORG ??
+  "alphafund"`). O feed, o pagamento e o ranking são daquela organização, não
+  da que o usuário acabou de fundar. `/orgs` cobre a descoberta e a gestão; o
+  console é o próximo a receber a organização por rota.
 - **O pagamento do agente ainda assina no servidor**, com `AGENT_TRADER_SECRET`.
   Ali é o modelo certo: o agente é uma máquina com chave própria, não uma
   pessoa diante de um pop-up. A constituição, que é ato de pessoa, passou a ser

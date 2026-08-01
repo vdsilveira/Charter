@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -282,6 +283,20 @@ export default function ConstituirForm({
           <CardContent className="space-y-2 pt-5 text-sm">
             <p className="font-medium text-ok">Organization chartered.</p>
             <p className="break-all font-mono text-xs">{feito.account}</p>
+            {/* Sem estes links, a organização recém-criada some da vista: o
+                registro não enumera, e achá-la de novo dependia de lembrar o
+                nome exato. */}
+            <p className="flex flex-wrap gap-4">
+              <Link className="underline hover:text-seal" href={`/org/${org.trim()}`}>
+                manage agents
+              </Link>
+              <Link className="underline hover:text-seal" href={`/o/${org.trim()}`}>
+                public credential
+              </Link>
+              <Link className="underline hover:text-seal" href="/orgs">
+                all your organizations
+              </Link>
+            </p>
             <a
               className="underline"
               href={`https://stellar.expert/explorer/testnet/tx/${feito.hash}`}
