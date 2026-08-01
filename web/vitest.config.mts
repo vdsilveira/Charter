@@ -12,6 +12,7 @@ export default defineConfig({
     environmentMatchGlobs: [
       ["test/write.test.ts", "node"],
       ["test/chain.test.ts", "node"],
+      ["test/assinatura-fundador.test.ts", "node"],
     ],
   },
   resolve: {

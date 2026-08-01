@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { traduzirErro } from "@/lib/errors";
+import { assinarEEnviar, freighter, type FreighterApi } from "@/lib/carteira";
 
 export interface AgenteForm {
   label: string;
+  /** Carteira do agente: é para ela que a procuração é escrita. */
+  carteira: string;
   allowedFns: string[];
   kybThreshold: string;
 }
@@ -15,14 +18,18 @@ export interface AgenteForm {
 export interface Constituicao {
   org: string;
   agentes: AgenteForm[];
+  /** Carteira conectada — funda a organização e paga a taxa. */
+  fundador: string;
 }
 
 export interface ConstituirFormProps {
-  /** Injetável para teste; em produção chama a rota que monta o create_org. */
+  /** Injetável para teste; em produção monta, assina na carteira e envia. */
   onSubmit?: (c: Constituicao) => Promise<{ hash: string; account: string }>;
   agentesIniciais?: AgenteForm[];
   /** Taxa em stroops, lida do contrato. "0" = constituição gratuita. */
   taxa?: string;
+  /** Injetável para teste. */
+  api?: FreighterApi;
 }
 
 /** Stroops para XLM legível — 7 casas, sem zeros à toa. */
@@ -31,17 +38,42 @@ function emXlm(stroops: string): string {
   return `${n % 1 === 0 ? n : Number(n.toFixed(4))} XLM`;
 }
 
-const PADRAO: AgenteForm[] = [{ label: "", allowedFns: ["transfer"], kybThreshold: "500" }];
+const PADRAO: AgenteForm[] = [
+  { label: "", carteira: "", allowedFns: ["transfer"], kybThreshold: "500" },
+];
 
-async function submitPadrao(c: Constituicao) {
-  const res = await fetch("/api/org", {
+/**
+ * Monta no servidor, assina na carteira, envia.
+ *
+ * Três passos porque a chave nunca sai do Freighter. O primeiro já roda a
+ * simulação: uma constituição que a rede recusaria falha antes de o pop-up
+ * abrir, e não se pede assinatura para algo destinado a reverter.
+ */
+async function submitPadrao(c: Constituicao): Promise<{ hash: string; account: string }> {
+  const montagem = await fetch("/api/org", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(c),
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body?.error ?? "could not charter the organization");
-  return body as { hash: string; account: string };
+  const { xdr, error } = await montagem.json();
+  if (!montagem.ok) throw new Error(error ?? "could not charter the organization");
+
+  const { hash, account } = await assinarEEnviar({
+    xdr,
+    endereco: c.fundador,
+    enviar: async (assinada) => {
+      const envio = await fetch("/api/tx", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ xdr: assinada }),
+      });
+      const corpo = await envio.json();
+      if (!envio.ok) throw new Error(corpo?.error ?? "the network refused the transaction");
+      return { hash: corpo.hash, account: corpo.retorno };
+    },
+  });
+
+  return { hash, account };
 }
 
 /**
@@ -56,6 +88,7 @@ export default function ConstituirForm({
   onSubmit = submitPadrao,
   agentesIniciais = PADRAO,
   taxa = "0",
+  api,
 }: ConstituirFormProps) {
   const cobra = Number(taxa) > 0;
   const [org, setOrg] = useState("");
@@ -63,6 +96,26 @@ export default function ConstituirForm({
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [feito, setFeito] = useState<{ hash: string; account: string } | null>(null);
+  const [fundador, setFundador] = useState<string | null>(null);
+
+  // Endereço vazio significa instalado, porém sem permissão para este site.
+  // Mostrá-lo antes de qualquer campo evita a pior descoberta possível: chegar
+  // ao fim do formulário e não ter com o que assinar.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const wallet = await freighter(api);
+        const { address } = (await wallet.getAddress?.()) ?? {};
+        if (vivo && address) setFundador(address);
+      } catch {
+        /* sem carteira: a validação no envio explica */
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [api]);
 
   function atualizar(i: number, campo: keyof AgenteForm, valor: string) {
     setAgentes((atual) =>
@@ -88,10 +141,20 @@ export default function ConstituirForm({
       setErro("Every agent needs a label.");
       return;
     }
+    if (agentes.some((a) => !a.carteira.trim())) {
+      // A procuração é escrita para o endereço do agente — sem ele não há o
+      // que registrar, e o agente nasceria incapaz de assinar.
+      setErro("Every agent needs a wallet — the power of attorney is written to it.");
+      return;
+    }
+    if (!fundador) {
+      setErro("Connect your wallet: you sign as the founder and the fee comes from your account.");
+      return;
+    }
 
     setEnviando(true);
     try {
-      setFeito(await onSubmit({ org: org.trim(), agentes }));
+      setFeito(await onSubmit({ org: org.trim(), agentes, fundador }));
     } catch (e) {
       setErro(traduzirErro(e));
     } finally {
@@ -107,6 +170,12 @@ export default function ConstituirForm({
         <p className="mt-1 text-sm text-slate">
           One transaction creates the corporate account and every agent&apos;s power of attorney.
         </p>
+        {fundador && (
+          <p className="mt-3 text-sm text-slate">
+            Signing as{" "}
+            <span className="break-all font-mono text-xs text-ink">{fundador}</span>
+          </p>
+        )}
       </header>
 
       {cobra && (
@@ -145,10 +214,19 @@ export default function ConstituirForm({
               An empty scope means an agent that moves no value — the auditor, for instance.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-3">
+          <CardContent className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm">
               <span className="mb-1 block text-slate">Label</span>
               <Input value={a.label} onChange={(e) => atualizar(i, "label", e.target.value)} placeholder="trader" />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-slate">Agent wallet</span>
+              <Input
+                value={a.carteira}
+                onChange={(e) => atualizar(i, "carteira", e.target.value)}
+                placeholder="G…"
+                className="font-mono text-xs"
+              />
             </label>
             <label className="block text-sm">
               <span className="mb-1 block text-slate">Allowed functions</span>
@@ -176,7 +254,9 @@ export default function ConstituirForm({
         </Button>
         <Button
           variant="ghost"
-          onClick={() => setAgentes((a) => [...a, { label: "", allowedFns: [], kybThreshold: "0" }])}
+          onClick={() =>
+            setAgentes((a) => [...a, { label: "", carteira: "", allowedFns: [], kybThreshold: "0" }])
+          }
         >
           Add agent
         </Button>

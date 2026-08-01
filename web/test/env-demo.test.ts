@@ -48,7 +48,7 @@ describe("leitura do .env.demo", () => {
 
 describe("aplicação no ambiente", () => {
   it("injeta o que falta", () => {
-    const alvo: NodeJS.ProcessEnv = {};
+    const alvo: Record<string, string | undefined> = {};
     expect(aplicarEnv("ADMIN_SECRET=S1\nCHARTER_GATE=C1", alvo)).toEqual([
       "ADMIN_SECRET",
       "CHARTER_GATE",
@@ -59,7 +59,7 @@ describe("aplicação no ambiente", () => {
   it("o ambiente real vence o arquivo", () => {
     // Em container as chaves vêm do compose. Um `.env.demo` esquecido no disco
     // trocando a conta que assina seria um erro silencioso e caro.
-    const alvo: NodeJS.ProcessEnv = { ADMIN_SECRET: "do-container" };
+    const alvo: Record<string, string | undefined> = { ADMIN_SECRET: "do-container" };
     expect(aplicarEnv("ADMIN_SECRET=do-arquivo", alvo)).toEqual([]);
     expect(alvo.ADMIN_SECRET).toBe("do-container");
   });

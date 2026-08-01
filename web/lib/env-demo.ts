@@ -40,7 +40,10 @@ export function parseEnv(texto: string): Record<string, string> {
  * `.env.demo` esquecido no disco não pode silenciosamente trocar a conta que
  * assina.
  */
-export function aplicarEnv(texto: string, alvo: NodeJS.ProcessEnv = process.env): string[] {
+export function aplicarEnv(
+  texto: string,
+  alvo: Record<string, string | undefined> = process.env,
+): string[] {
   const lidas = parseEnv(texto);
   const aplicadas: string[] = [];
 

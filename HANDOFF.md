@@ -24,8 +24,9 @@ este arquivo diz **onde paramos**.
 | 7 · auditoria e disclosure | ✅ | 4 testes; auditor designado abre, chave errada não |
 | 8 · console e credencial | ✅ | credencial em uma leitura; simulação prevê recusa |
 | Taxa de constituição | ✅ | cofre `100000000000 → 100050000000` ao constituir |
-| Gestão de agentes | ✅ | admin adiciona/remove; remoção apaga a regra da conta |
+| Gestão de agentes | ⚠️ **bloqueado on-chain** | só passa em teste de contrato; ver §Auth fora da raiz |
 | Carteira Freighter | ✅ | rede validada antes de assinar |
+| Constituição assinada pelo fundador | ✅ | servidor monta, browser assina; 6 testes na testnet |
 | Domínio e subdomínio (SEP-2) | ✅ | `trader*charter.local` resolve na rede |
 | Docker x402 | ✅ | compose com vendedor, agente e app |
 | Layout do app | ✅ | sistema visual próprio, claro e escuro |
@@ -116,6 +117,49 @@ grafo seria o oposto do que compliance pede — resposta pronta para o Q&A.
    Com as duas: `docker compose up --build` e `docker compose run --rm agente`.
 3. **Notion do evento**: já lido e resumido acima.
 4. **MCP `stellar-raven`**: autenticar com `/mcp` → Authenticate.
+
+---
+
+## Auth fora da raiz — o que bloqueia a gestão de agentes
+
+**`add_agent` e `remove_agent` nunca funcionaram contra a rede.** Passam em
+`cargo test` sob `mock_all_auths_allowing_non_root_auth()`, cujo próprio nome
+descreve o que a rede não concede por padrão. Nenhum script ou teste de
+integração jamais os executou na testnet — a descoberta veio ao mover a
+assinatura para o browser, e **não** é consequência dessa mudança: o caminho
+antigo, assinando no servidor, falha igual.
+
+A cadeia: `add_agent` chama `add_context_rule` na conta corporativa; a conta
+exige a própria autorização; a regra do administrador usa
+`Signer::Delegated(fundador)`, e o `authenticate` da OZ faz
+
+```rust
+Signer::Delegated(addr) => addr.require_auth_for_args((auth_digest,).into_val(e))
+```
+
+Isso é autorização **fora da raiz**, dentro do `__check_auth`. O que foi tentado,
+em ordem, e o que cada passo ensinou:
+
+| Tentativa | Resultado |
+|---|---|
+| `prepareTransaction` (gravação padrão) | `InvalidAction` — recusa gravar auth fora da raiz |
+| `authMode: "record_allow_nonroot"` | grava: 2 entries, a segunda para a conta |
+| entries como vieram, assinando a tx | `__check_auth` trapa: `UnreachableCodeReached` |
+| `AuthPayload { context_rule_ids: [0], signers: { Delegated: b"" } }` | avança: agora falta footprint (`ContextRuleData(0)` fora dele) |
+| 2ª passada em `enforce` para refazer o footprint | `InvalidAction` — a conta-fonte não cobre o `require_auth_for_args` |
+| entrada aninhada montada à mão (`__check_auth` + digest) | `InvalidAction` — forma da invocação não confere |
+
+**Saída proposta, de contrato:** a regra do administrador deve delegar ao
+**endereço do registro**, não ao do fundador. Um contrato autoriza as próprias
+sub-invocações, então o `__check_auth` passaria sem entrada aninhada. A garantia
+não se perde: o registro já exige `founder.require_auth()` na raiz antes de
+tocar na conta, e é ele quem decide se quem chamou é o fundador. Custa
+redeploy de `CharterAccount` e `OrgRegistry`, e as organizações existentes
+precisariam ser recriadas.
+
+Até lá, a constituição cobre o caso principal — ela **atribui todos os agentes**
+de uma vez, porque o construtor da conta escreve as regras sem sub-invocação.
+O que falta é adicionar e remover **depois**.
 
 ---
 
@@ -280,13 +324,17 @@ wallet" de novo no Console.
 
 ## Dívidas conhecidas
 
+- **`create_org` gerava chaves de agente no servidor e descartava o segredo.**
+  A procuração nascia válida e sem ninguém capaz de usá-la. Corrigido: cada
+  agente entra com a própria carteira, como já era em `add_agent`.
 - **`charter-signer` existe em `.mjs` e `.ts`** — mesmo algoritmo, duas
   linguagens. O `.mjs` serve os scripts em Node puro; o `.ts`, as rotas do app.
   Se um mudar sem o outro, demo e aplicação divergem. Estão marcados como gêmeos
   no cabeçalho.
-- **As chaves assinam no servidor** nas rotas de escrita. Para a demo é o certo
-  (a apresentação não trava numa extensão); em produção o `POST /api/org` seria
-  assinado no browser. O componente de carteira já está pronto e testado.
+- **O pagamento do agente ainda assina no servidor**, com `AGENT_TRADER_SECRET`.
+  Ali é o modelo certo: o agente é uma máquina com chave própria, não uma
+  pessoa diante de um pop-up. A constituição, que é ato de pessoa, passou a ser
+  assinada no browser.
 - **A stack de identidade tem issuer mock.** O registry é o trilho; o issuer
   real seria um anchor SEP ou provedor de KYB.
 - **Identificadores em português, interface em inglês.** Arquivos e variáveis

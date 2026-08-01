@@ -11,7 +11,7 @@ import "server-only";
 import { readFileSync } from "fs";
 import { join } from "path";
 import {
-  Address, Keypair, Networks, Operation, TransactionBuilder, nativeToScVal, rpc, scValToNative, xdr,
+  Address, Keypair, Networks, Operation, StrKey, TransactionBuilder, nativeToScVal, rpc, scValToNative, xdr,
 } from "@stellar/stellar-sdk";
 import { createCharterSigner } from "./charter-signer";
 import { aplicarEnv } from "./env-demo";
@@ -62,10 +62,9 @@ const entry = (k: string, v: xdr.ScVal) => new xdr.ScMapEntry({ key: sym(k), val
 const i128 = (v: bigint | string) => nativeToScVal(BigInt(v), { type: "i128" });
 const addr = (a: string) => new Address(a).toScVal();
 
-async function enviar(tx: ReturnType<TransactionBuilder["build"]>, assinante: Keypair) {
-  const preparada = await server.prepareTransaction(tx);
-  preparada.sign(assinante);
-  const enviada = await server.sendTransaction(preparada);
+/** Submete o que já está assinado e espera o ledger fechar. */
+async function submeter(tx: Parameters<typeof server.sendTransaction>[0]) {
+  const enviada = await server.sendTransaction(tx);
   if (enviada.status === "ERROR") {
     throw new Error(JSON.stringify(enviada.errorResult ?? enviada));
   }
@@ -77,6 +76,49 @@ async function enviar(tx: ReturnType<TransactionBuilder["build"]>, assinante: Ke
   }
   if (res.status !== "SUCCESS") throw new Error(`transação ${enviada.hash}: ${res.status}`);
   return { hash: enviada.hash, res };
+}
+
+async function enviar(tx: ReturnType<TransactionBuilder["build"]>, assinante: Keypair) {
+  const preparada = await server.prepareTransaction(tx);
+  preparada.sign(assinante);
+  return submeter(preparada);
+}
+
+/**
+ * Monta e prepara uma transação **para o fundador assinar na carteira**.
+ *
+ * A conta dele é a fonte: é de lá que sai a taxa, e é o endereço que fica
+ * gravado como fundador da organização. `prepareTransaction` já roda a
+ * simulação, então uma operação que a rede recusaria falha aqui — antes de a
+ * carteira abrir. Pedir assinatura para algo destinado a reverter gasta a
+ * confiança do usuário e uma transação.
+ */
+async function prepararParaAssinatura(fundador: string, operacao: xdr.Operation) {
+  const fonte = await server.getAccount(fundador);
+  const tx = new TransactionBuilder(fonte, { fee: "5000000", networkPassphrase: PASS })
+    .addOperation(operacao)
+    // Cinco minutos: entre montar e assinar existe uma pessoa lendo um pop-up.
+    .setTimeout(300)
+    .build();
+
+  const preparada = await server.prepareTransaction(tx);
+  return { xdr: preparada.toXDR() };
+}
+
+/**
+ * Envia o que a carteira assinou.
+ *
+ * Só isto vem do browser: a transação é remontada a partir do XDR e submetida
+ * como está. O servidor não tem como alterá-la sem invalidar a assinatura, que
+ * é exatamente a propriedade que faz este caminho valer a pena.
+ */
+export async function enviarAssinada(xdrAssinado: string) {
+  const tx = TransactionBuilder.fromXDR(xdrAssinado, PASS);
+  const { hash, res } = await submeter(tx);
+  return {
+    hash,
+    retorno: res.returnValue ? String(scValToNative(res.returnValue)) : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +218,8 @@ export async function enviarPagamento(p: Pagamento) {
 
 export interface AgenteEntrada {
   label: string;
+  /** Carteira do agente: é para ela que a procuração é escrita. */
+  carteira: string;
   allowedFns: string[];
   kybThreshold: string;
 }
@@ -191,21 +235,23 @@ function gateParams(a: AgenteEntrada, identityVerifier: string, claimTopic: numb
   ]);
 }
 
-/** `AgentRule { label, policies, signers, target, valid_until }` */
-function agentRule(a: AgenteEntrada, pubkey: Buffer | null, cfg: {
+/**
+ * `AgentRule { label, policies, signers, target, valid_until }`
+ *
+ * O signatário é sempre `Delegated(carteira do agente)`: a conta corporativa
+ * delega a verificação ao endereço dele, que assina com a própria chave. A
+ * organização guarda a permissão, nunca o segredo.
+ *
+ * A alternativa `External(verifier, pubkey)` saiu daqui junto com um bug: as
+ * chaves eram geradas no servidor e o segredo, descartado — o agente nascia
+ * com procuração válida e sem nenhuma forma de usá-la.
+ */
+function agentRule(a: AgenteEntrada, cfg: {
   gate: string;
-  verifier: string;
   target: string;
   identityVerifier: string;
   claimTopic: number;
-  /** Carteira do agente. Quando presente, o signatário é ela, via Delegated. */
-  delegado?: string;
 }) {
-  // `Delegated` faz a conta delegar a verificação ao endereço do agente: ele
-  // assina com a própria carteira, sem verifier externo no caminho.
-  const signer = cfg.delegado
-    ? xdr.ScVal.scvVec([sym("Delegated"), addr(cfg.delegado)])
-    : xdr.ScVal.scvVec([sym("External"), addr(cfg.verifier), xdr.ScVal.scvBytes(pubkey!)]);
   return xdr.ScVal.scvMap([
     entry("label", xdr.ScVal.scvString(a.label)),
     entry(
@@ -217,61 +263,63 @@ function agentRule(a: AgenteEntrada, pubkey: Buffer | null, cfg: {
         }),
       ]),
     ),
-    entry("signers", xdr.ScVal.scvVec([signer])),
+    entry("signers", xdr.ScVal.scvVec([xdr.ScVal.scvVec([sym("Delegated"), addr(a.carteira)])])),
     entry("target", addr(cfg.target)),
     entry("valid_until", xdr.ScVal.scvVoid()),
   ]);
 }
 
+/** Endereço malformado vira erro claro aqui, não transação recusada depois. */
+function exigirCarteira(a: AgenteEntrada) {
+  if (!a.carteira?.trim()) {
+    throw new Error(`Agent "${a.label}" needs a wallet — the power of attorney is written to it.`);
+  }
+  if (!StrKey.isValidEd25519PublicKey(a.carteira.trim())) {
+    throw new Error(
+      `Invalid wallet for agent "${a.label}": a Stellar address starts with G and is 56 characters long.`,
+    );
+  }
+}
+
 /**
- * Constitui a organização em **uma** transação: conta corporativa, uma
- * procuração por agente e o registro dos rótulos.
+ * Monta a constituição para o **fundador** assinar.
  *
- * As chaves dos agentes são geradas aqui e devolvidas: quem constitui precisa
- * delas para operar depois, e elas não existem antes deste momento.
+ * Uma transação cria a conta corporativa, uma procuração por agente e o
+ * registro dos rótulos. A taxa sai da conta de quem assina, no mesmo bloco —
+ * não há como constituir sem pagar nem pagar sem constituir.
  */
-export async function constituirOrg({
+export async function montarConstituicao({
+  fundador,
   org,
   agentes,
 }: {
+  fundador: string;
   org: string;
   agentes: AgenteEntrada[];
 }) {
-  const admin = Keypair.fromSecret(env("ADMIN_SECRET"));
-  const registry = env("CHARTER_REGISTRY");
-  const gate = env("CHARTER_GATE");
-  const identityVerifier = env("CHARTER_IDENTITY_VERIFIER");
-  const claimTopic = Number(process.env.CHARTER_CLAIM_TOPIC ?? 1);
+  agentes.forEach(exigirCarteira);
 
-  const chaves = agentes.map(() => Keypair.random());
-  const regras = agentes.map((a, i) =>
-    agentRule(a, Buffer.from(chaves[i].rawPublicKey()), {
-      gate,
-      verifier: env("CHARTER_ED25519_VERIFIER"),
-      target: env("CHARTER_TARGET"),
-      identityVerifier,
-      claimTopic,
+  const gate = env("CHARTER_GATE");
+  const cfg = {
+    gate,
+    target: env("CHARTER_TARGET"),
+    identityVerifier: env("CHARTER_IDENTITY_VERIFIER"),
+    claimTopic: Number(process.env.CHARTER_CLAIM_TOPIC ?? 1),
+  };
+
+  return prepararParaAssinatura(
+    fundador,
+    Operation.invokeContractFunction({
+      contract: env("CHARTER_REGISTRY"),
+      function: "create_org",
+      args: [
+        sym(org),
+        addr(fundador),
+        addr(gate),
+        xdr.ScVal.scvVec(agentes.map((a) => agentRule(a, cfg))),
+      ],
     }),
   );
-
-  const fonte = await server.getAccount(admin.publicKey());
-  const tx = new TransactionBuilder(fonte, { fee: "5000000", networkPassphrase: PASS })
-    .addOperation(
-      Operation.invokeContractFunction({
-        contract: registry,
-        function: "create_org",
-        args: [sym(org), addr(admin.publicKey()), addr(gate), xdr.ScVal.scvVec(regras)],
-      }),
-    )
-    .setTimeout(60)
-    .build();
-
-  const { hash, res } = await enviar(tx, admin);
-  return {
-    hash,
-    account: String(scValToNative(res.returnValue!)),
-    agentes: agentes.map((a, i) => ({ label: a.label, publicKey: chaves[i].publicKey() })),
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -279,66 +327,40 @@ export async function constituirOrg({
 // ---------------------------------------------------------------------------
 
 /**
- * Adiciona um agente com a carteira que o administrador indicar.
+ * Monta a adição de um agente para o fundador assinar.
  *
- * A autorização vem da regra do administrador dentro da conta corporativa
- * (`Signer::Delegated`), então basta o fundador assinar a transação. A chave do
- * agente nunca passa por aqui: o que se registra é o endereço dele.
+ * A autorização atravessa duas camadas: o registro exige o fundador, e a conta
+ * corporativa exige a regra do administrador (`Signer::Delegated` para o mesmo
+ * endereço). Ambas se resolvem com a assinatura de quem é fundador de fato —
+ * quem não for é recusado já na simulação, com 5004.
  */
-export async function adicionarAgente(
-  org: string,
-  a: { label: string; carteira: string; allowedFns: string[]; kybThreshold: string },
-) {
-  const admin = Keypair.fromSecret(env("ADMIN_SECRET"));
-  const registry = env("CHARTER_REGISTRY");
-  const gate = env("CHARTER_GATE");
+export async function montarAdicaoAgente(org: string, a: AgenteEntrada, fundador: string) {
+  exigirCarteira(a);
 
-  const regra = agentRule(
-    { label: a.label, allowedFns: a.allowedFns, kybThreshold: a.kybThreshold },
-    // `Signer::Delegated` aceita o endereço da carteira direto — sem verifier
-    // externo e sem chave pública em bytes.
-    null,
-    {
-      gate,
-      verifier: env("CHARTER_ED25519_VERIFIER"),
-      target: env("CHARTER_TARGET"),
-      identityVerifier: env("CHARTER_IDENTITY_VERIFIER"),
-      claimTopic: Number(process.env.CHARTER_CLAIM_TOPIC ?? 1),
-      delegado: a.carteira,
-    },
+  const regra = agentRule(a, {
+    gate: env("CHARTER_GATE"),
+    target: env("CHARTER_TARGET"),
+    identityVerifier: env("CHARTER_IDENTITY_VERIFIER"),
+    claimTopic: Number(process.env.CHARTER_CLAIM_TOPIC ?? 1),
+  });
+
+  return prepararParaAssinatura(
+    fundador,
+    Operation.invokeContractFunction({
+      contract: env("CHARTER_REGISTRY"),
+      function: "add_agent",
+      args: [sym(org), regra],
+    }),
   );
-
-  const fonte = await server.getAccount(admin.publicKey());
-  const tx = new TransactionBuilder(fonte, { fee: "5000000", networkPassphrase: PASS })
-    .addOperation(
-      Operation.invokeContractFunction({
-        contract: registry,
-        function: "add_agent",
-        args: [sym(org), regra],
-      }),
-    )
-    .setTimeout(60)
-    .build();
-
-  const { hash } = await enviar(tx, admin);
-  return { hash, label: a.label, carteira: a.carteira };
 }
 
-export async function removerAgente(org: string, label: string) {
-  const admin = Keypair.fromSecret(env("ADMIN_SECRET"));
-  const fonte = await server.getAccount(admin.publicKey());
-
-  const tx = new TransactionBuilder(fonte, { fee: "5000000", networkPassphrase: PASS })
-    .addOperation(
-      Operation.invokeContractFunction({
-        contract: env("CHARTER_REGISTRY"),
-        function: "remove_agent",
-        args: [sym(org), sym(label)],
-      }),
-    )
-    .setTimeout(60)
-    .build();
-
-  const { hash } = await enviar(tx, admin);
-  return { hash, label };
+export async function montarRemocaoAgente(org: string, label: string, fundador: string) {
+  return prepararParaAssinatura(
+    fundador,
+    Operation.invokeContractFunction({
+      contract: env("CHARTER_REGISTRY"),
+      function: "remove_agent",
+      args: [sym(org), sym(label)],
+    }),
+  );
 }

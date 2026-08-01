@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import PainelAgentes, { type AgenteResumo, type NovoAgente } from "@/components/painel-agentes";
+import { assinarEEnviar, freighter, type FreighterApi } from "@/lib/carteira";
 
 /**
  * Administração da organização.
@@ -10,8 +11,54 @@ import PainelAgentes, { type AgenteResumo, type NovoAgente } from "@/components/
  * A lista vem da credencial pública — a mesma que a contraparte lê. Mostrar ao
  * administrador exatamente o que o mundo vê evita a divergência clássica entre
  * o painel interno e a realidade da rede.
+ *
+ * Quem assina é a carteira do fundador, como na constituição: o servidor monta
+ * e envia, mas não tem chave nenhuma no caminho.
  */
-export default function PainelOrg({ org }: { org: string }) {
+export default function PainelOrg({ org, api }: { org: string; api?: FreighterApi }) {
+  const [fundador, setFundador] = useState<string | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const wallet = await freighter(api);
+        const { address } = (await wallet.getAddress?.()) ?? {};
+        if (vivo && address) setFundador(address);
+      } catch {
+        /* sem carteira: as ações explicam ao serem usadas */
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [api]);
+
+  /** Monta no servidor, assina na carteira, envia. */
+  const assinarEEnviarMontagem = useCallback(
+    async (resposta: Response) => {
+      const { xdr, error } = await resposta.json();
+      if (!resposta.ok) throw new Error(error ?? "could not build the transaction");
+      if (!fundador) throw new Error("Connect your wallet to sign as the founder.");
+
+      return assinarEEnviar({
+        xdr,
+        endereco: fundador,
+        enviar: async (assinada) => {
+          const envio = await fetch("/api/tx", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ xdr: assinada }),
+          });
+          const corpo = await envio.json();
+          if (!envio.ok) throw new Error(corpo?.error ?? "the network refused the transaction");
+          return corpo as { hash: string };
+        },
+      });
+    },
+    [fundador],
+  );
+
   const carregar = useCallback(async (): Promise<AgenteResumo[]> => {
     const r = await fetch(`/api/leaderboard/${org}`);
     const b = await r.json();
@@ -33,29 +80,26 @@ export default function PainelOrg({ org }: { org: string }) {
   }, [org]);
 
   const adicionar = useCallback(
-    async (a: NovoAgente) => {
-      const r = await fetch(`/api/agente/${org}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(a),
-      });
-      const b = await r.json();
-      if (!r.ok) throw new Error(b?.error ?? "could not add the agent");
-      return b;
-    },
-    [org],
+    async (a: NovoAgente) =>
+      assinarEEnviarMontagem(
+        await fetch(`/api/agente/${org}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...a, fundador }),
+        }),
+      ),
+    [org, fundador, assinarEEnviarMontagem],
   );
 
   const remover = useCallback(
-    async (label: string) => {
-      const r = await fetch(`/api/agente/${org}?label=${encodeURIComponent(label)}`, {
-        method: "DELETE",
-      });
-      const b = await r.json();
-      if (!r.ok) throw new Error(b?.error ?? "could not remove the agent");
-      return b;
-    },
-    [org],
+    async (label: string) =>
+      assinarEEnviarMontagem(
+        await fetch(
+          `/api/agente/${org}?label=${encodeURIComponent(label)}&fundador=${fundador ?? ""}`,
+          { method: "DELETE" },
+        ),
+      ),
+    [org, fundador, assinarEEnviarMontagem],
   );
 
   return (
@@ -66,6 +110,11 @@ export default function PainelOrg({ org }: { org: string }) {
         <p className="mt-1 text-sm text-slate">
           Adding or removing agents changes the corporate account. Removing erases the power of
           attorney from the account — it is not just a label that changes.{" "}
+          {fundador && (
+            <>
+              Signing as <span className="font-mono text-xs">{fundador.slice(0, 8)}…</span>.{" "}
+            </>
+          )}
           <Link className="underline hover:text-seal" href={`/o/${org}`}>
             See the public credential
           </Link>

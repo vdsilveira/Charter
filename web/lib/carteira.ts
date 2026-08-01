@@ -30,11 +30,11 @@ export async function freighter(api?: FreighterApi): Promise<FreighterApi> {
   return api ?? ((await import("@stellar/freighter-api")) as unknown as FreighterApi);
 }
 
-export interface AssinarParams {
+export interface AssinarParams<R> {
   xdr: string;
   endereco: string;
   api?: FreighterApi;
-  enviar: (xdrAssinado: string) => Promise<{ hash: string }>;
+  enviar: (xdrAssinado: string) => Promise<R>;
 }
 
 /**
@@ -44,13 +44,18 @@ export interface AssinarParams {
  * chama mostra o aviso. Um catch silencioso aqui produziria a pior combinação
  * possível — o usuário achando que cancelou e a rede achando que não.
  */
-export async function assinarEEnviar({ xdr, endereco, api, enviar }: AssinarParams) {
+export async function assinarEEnviar<R extends { hash: string }>({
+  xdr,
+  endereco,
+  api,
+  enviar,
+}: AssinarParams<R>): Promise<R> {
   const wallet = await freighter(api);
 
   const { network } = (await wallet.getNetwork?.()) ?? {};
   if (!redeCorreta(network)) {
     throw new Error(
-      `A carteira está em ${network ?? "rede desconhecida"}. Troque para testnet antes de assinar.`,
+      `Your wallet is on ${network ?? "an unknown network"} — switch it to testnet before signing.`,
     );
   }
 
@@ -60,6 +65,6 @@ export async function assinarEEnviar({ xdr, endereco, api, enviar }: AssinarPara
       address: endereco,
     })) ?? {};
 
-  if (error || !signedTxXdr) throw new Error(error ?? "assinatura recusada na carteira");
+  if (error || !signedTxXdr) throw new Error(error ?? "signature declined in the wallet");
   return enviar(signedTxXdr);
 }

@@ -12,11 +12,11 @@
 import { readFileSync } from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { aplicarEnv } from "@/lib/env-demo";
-import { constituirOrg, enviarPagamento, simularPagamento } from "@/lib/write";
+import { enviarPagamento, simularPagamento } from "@/lib/write";
 
 /** Chaves de demo não são versionadas: vivem em `.env.demo`. */
 function carregarEnv() {
-  // Mesmo parser que o servidor usa em `instrumentation.ts`: se o teste lesse o
+  // Mesmo parser que o servidor usa em `lib/write.ts`: se o teste lesse o
   // arquivo de um jeito e a aplicação de outro, o teste deixaria de provar algo
   // sobre a aplicação.
   aplicarEnv(readFileSync(new URL("../../.env.demo", import.meta.url), "utf8"));
@@ -73,17 +73,6 @@ describe("rotas de escrita", () => {
     },
   );
 
-  it(
-    "constituição recusa nome de organização já existente",
-    { timeout: 120_000 },
-    async () => {
-      // `alphafund` já foi constituída: o nome é único e imutável.
-      await expect(
-        constituirOrg({
-          org: "alphafund",
-          agentes: [{ label: "trader", allowedFns: ["transfer"], kybThreshold: "500" }],
-        }),
-      ).rejects.toThrow(/5000/);
-    },
-  );
+  // A constituição saiu daqui: agora o fundador assina no browser, e a
+  // montagem é coberta por `assinatura-fundador.test.ts`.
 });
