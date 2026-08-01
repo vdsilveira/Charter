@@ -25,7 +25,10 @@ export default function Chrome() {
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-8 gap-y-3 px-6 py-3">
         <Link href="/" className="flex items-baseline gap-2">
           <span className="font-serif text-lg font-semibold tracking-tight">Charter</span>
-          <span className="rotulo hidden sm:inline">organization registry</span>
+          {/* Nomeia o destino em vez de descrever o produto: dentro do app, o
+              que falta é a volta para o site. Visível também no mobile — era
+              tagline, e tagline pode sumir; saída não pode. */}
+          <span className="rotulo">Home</span>
         </Link>
 
         <nav className="flex items-center gap-1 text-sm">
