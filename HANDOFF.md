@@ -161,9 +161,14 @@ Emitir claim para uma conta nova: `./scripts/issue-claim.sh <alias>`.
 # contratos
 cd contracts && stellar contract build && cargo test && cd ..
 
-# integração (precisa dos deployments e das chaves)
-pnpm test
+# integração de contratos e camadas (precisa dos deployments e das chaves)
+pnpm test                      # treasury, ativo permissionado, auditoria
 node --test test/treasury.test.mjs
+
+# frontend
+pnpm web                       # Next.js em :3000
+pnpm test:web                  # 25 testes de componente (mock, rápidos)
+pnpm --filter @charter/web test:write   # 10 de integração contra a testnet
 
 # demos que funcionam hoje
 node scripts/agent-payment-demo.mjs      # dentro da política liquida, fora é recusado

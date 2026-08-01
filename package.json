@@ -12,8 +12,10 @@
     "build:ctd-sdk": "pnpm --filter @ctd/sdk build",
     "test": "node --test 'test/*.test.mjs'",
     "test:fase5": "node --test test/treasury.test.mjs",
-    "console": "node src/console.mjs",
-    "create:org": "node scripts/create-org.mjs"
+    "create:org": "node scripts/create-org.mjs",
+    "web": "pnpm --filter @charter/web dev",
+    "web:build": "pnpm --filter @charter/web build",
+    "test:web": "pnpm --filter @charter/web test"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^16.2.0",

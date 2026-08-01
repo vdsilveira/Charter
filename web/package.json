@@ -7,9 +7,9 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "test": "vitest run --exclude test/write.test.ts",
+    "test": "vitest run --exclude 'test/write.test.ts' --exclude 'test/chain.test.ts'",
     "test:watch": "vitest",
-    "test:write": "vitest run test/write.test.ts"
+    "test:write": "vitest run test/write.test.ts test/chain.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.2",

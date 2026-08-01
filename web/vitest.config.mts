@@ -9,7 +9,10 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     include: ["test/**/*.test.tsx", "test/**/*.test.ts"],
     // Rotas de escrita rodam em Node: tocam a rede e não precisam de DOM.
-    environmentMatchGlobs: [["test/write.test.ts", "node"]],
+    environmentMatchGlobs: [
+      ["test/write.test.ts", "node"],
+      ["test/chain.test.ts", "node"],
+    ],
   },
   resolve: {
     alias: {
