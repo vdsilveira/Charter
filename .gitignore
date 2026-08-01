@@ -37,3 +37,6 @@ secrets/
 # Next.js
 web/.next/
 web/next-env.d.ts
+
+# Pacotes de exportação
+*.zip
