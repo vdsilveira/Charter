@@ -13,6 +13,8 @@ export default defineConfig({
       ["test/write.test.ts", "node"],
       ["test/chain.test.ts", "node"],
       ["test/assinatura-fundador.test.ts", "node"],
+      ["test/claim-kyb.test.ts", "node"],
+      ["test/admin.test.ts", "node"],
     ],
   },
   resolve: {

@@ -13,6 +13,11 @@ export interface FreighterApi {
   /** Endereço vazio significa: instalado, mas sem permissão para este site. */
   getAddress?: () => Promise<{ address?: string; error?: string }>;
   getNetwork?: () => Promise<{ network?: string; networkPassphrase?: string; error?: string }>;
+  /** Assina bytes arbitrários — usado no desafio da área de administração. */
+  signMessage?: (
+    mensagem: string,
+    opts?: { address?: string },
+  ) => Promise<{ signedMessage?: string | Uint8Array; error?: string }>;
   signTransaction?: (
     xdr: string,
     opts?: { networkPassphrase?: string; address?: string },

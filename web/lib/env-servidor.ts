@@ -19,15 +19,33 @@ import { aplicarEnv } from "./env-demo";
 
 // `process.cwd()` em vez de `import.meta.url`: o bundler reescreve a segunda, e
 // o caminho passaria a apontar para dentro de `.next/`.
-for (const caminho of [join(process.cwd(), "..", ".env.demo"), join(process.cwd(), ".env.demo")]) {
-  try {
-    // Ausência é normal: em container as chaves vêm do compose, e `aplicarEnv`
-    // nunca sobrescreve o que já está no ambiente.
-    aplicarEnv(readFileSync(caminho, "utf8"));
-    break;
-  } catch {
-    /* próximo candidato */
+// `.env.identity` guarda a chave do issuer, separada de propósito: quem emite
+// claim KYB não é quem assina transações da demo.
+for (const arquivo of [".env.demo", ".env.identity"]) {
+  for (const base of ["..", "."]) {
+    try {
+      // Ausência é normal: em container as chaves vêm do compose, e
+      // `aplicarEnv` nunca sobrescreve o que já está no ambiente.
+      aplicarEnv(readFileSync(join(process.cwd(), base, arquivo), "utf8"));
+      break;
+    } catch {
+      /* próximo candidato */
+    }
   }
+}
+
+/** Endereços da stack de identidade, do arquivo de deployment. */
+export function identidade(): Record<string, string> {
+  for (const base of ["..", "."]) {
+    try {
+      return JSON.parse(
+        readFileSync(join(process.cwd(), base, "deployments", "identity-testnet.json"), "utf8"),
+      );
+    } catch {
+      /* próximo candidato */
+    }
+  }
+  throw new Error("deployments/identity-testnet.json not found — is the identity stack up?");
 }
 
 /**

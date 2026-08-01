@@ -29,6 +29,7 @@ este arquivo diz **onde paramos**.
 | Constituição assinada pelo fundador | ✅ | `matrix` criada na testnet pela carteira do usuário |
 | Minhas organizações (`/orgs`) | ✅ | nomes do histórico, agentes de `org_of` |
 | Console e credencial por carteira | ✅ | `seletor-org` resolve; `alphafund` saiu dos padrões |
+| Área de administração (`/admin`) | ✅ | emite claim KYB; portão por desafio assinado |
 | Domínio e subdomínio (SEP-2) | ✅ | `trader*charter.local` resolve na rede |
 | Docker x402 | ✅ | compose com vendedor, agente e app |
 | Layout do app | ✅ | sistema visual próprio, claro e escuro |
@@ -119,6 +120,56 @@ grafo seria o oposto do que compliance pede — resposta pronta para o Q&A.
    Com as duas: `docker compose up --build` e `docker compose run --rm agente`.
 3. **Notion do evento**: já lido e resumido acima.
 4. **MCP `stellar-raven`**: autenticar com `/mcp` → Authenticate.
+
+---
+
+## Área de administração (`/admin`) — emissão de claim KYB
+
+Fora da navegação de propósito. **Não listar não é segurança**: quem sabe a URL
+chega lá. O que protege é o portão da rota, e a página diz isso.
+
+**Por que existia o problema.** `credentials_of` calcula `org_verified` com
+`verify_identity(org.founder)` — o **fundador**, não a conta corporativa. O
+`bootstrap-identity` emitiu claims para as *contrapartes* (`supplier`), que é o
+que o gate de pagamento consulta em `4003`, e nenhum fundador foi registrado.
+Resultado: toda credencial da demo mostrava "organização não verificada",
+`alphafund` inclusive. O comportamento estava certo (fail-closed); faltava o
+claim.
+
+**O portão.** Endereço declarado não prova nada — o cliente manda o que quiser.
+`GET /api/admin/desafio` emite um nonce, a carteira assina com `signMessage`, e
+`POST /api/admin/kyb` confere a assinatura contra a chave do admin antes de ler
+o resto do corpo. Nonce vale uma vez e expira em 5 min. 9 testes cobrem
+principalmente as formas de burlar.
+
+**Armadilha achada rodando:** o Next empacota **cada rota separadamente**, então
+o `Map` de desafios pendentes era instanciado uma vez por rota — o nonce criado
+em `/desafio` não existia em `/kyb`, e o portão recusava todo mundo com "desafio
+desconhecido", parecendo erro de assinatura. Vive em `globalThis` por isso.
+
+**A emissão** (`lib/kyb.ts`) é o porte de `scripts/issue-claim.sh`, com uma
+diferença: o script implantava o contrato de identidade com `--source <alias>`,
+exigindo a chave secreta do sujeito no CLI. Uma carteira de usuário vive no
+Freighter. Aqui o admin paga o deploy e fica como `owner`, e o registro mapeia a
+conta do sujeito àquela identidade. **Para a demo é o papel do emissor; num
+sistema real o sujeito deveria controlar a própria identidade** — a tela diz
+isso ao usuário, não só este arquivo.
+
+A assinatura do claim foi portada para TypeScript (`lib/claim-kyb.ts`) porque
+depender de `cargo run` dentro de uma rota HTTP exigiria a toolchain Rust no
+servidor. O porte é conferido contra o binário: o teste pega a saída real do
+`sign-claim` e **verifica aquela assinatura com a mensagem reconstruída em JS**.
+Um byte fora de ordem reprova.
+
+Emitido na testnet para os dois fundadores:
+
+| Conta | Identidade | Resultado |
+|---|---|---|
+| `GAFASLN5…` (fundador de `matrix`) | `CDCHFY54…` | verificado |
+| `GBBH2YAT…` (fundador de `alphafund`) | `CCYBUUIE…` | verificado |
+
+Ambas as credenciais mostram **organization verified**. Reemitir é idempotente:
+a rota consulta antes e devolve `jaEstava`, sem criar segunda identidade.
 
 ---
 
