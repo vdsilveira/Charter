@@ -8,8 +8,14 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     include: ["test/**/*.test.tsx", "test/**/*.test.ts"],
+    // Rotas de escrita rodam em Node: tocam a rede e não precisam de DOM.
+    environmentMatchGlobs: [["test/write.test.ts", "node"]],
   },
   resolve: {
-    alias: { "@": fileURLToPath(new URL("./", import.meta.url)) },
+    alias: {
+      "@": fileURLToPath(new URL("./", import.meta.url)),
+      // Ver test/stubs/server-only.ts.
+      "server-only": fileURLToPath(new URL("./test/stubs/server-only.ts", import.meta.url)),
+    },
   },
 });
