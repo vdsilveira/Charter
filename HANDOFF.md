@@ -40,6 +40,39 @@ como seguro contra a apresentação ao vivo falhar.
 
 ---
 
+## O evento
+
+**Stellar Summit São Paulo 2026**, submissão via **GrantFox** (`bounties.grantfox.xyz`;
+docs em `docs.grantfox.xyz`, ambos exigem login).
+
+Lanes oficiais: **Privacy (OpenZeppelin + Nethermind)**, **Anchors and Ramps
+(Etherfuse)**, **Payments and Agent Tooling (SDF DevEx)**, **Content & Docs**.
+O Charter cobre duas:
+
+| Lane | O que entrega |
+|---|---|
+| Privacy | Confidential Tokens + `KybPolicy`, folha com valores ocultos, auditor designado |
+| Payments and Agent Tooling | Smart account com policy signer, recusa on-chain, `OrgRegistry`, console |
+
+**Pré-requisitos da plataforma — dependem só de ação humana:**
+1. **KYC verificado.** Depende de terceiro e pode levar dias; é o único item do
+   projeto sem plano B.
+2. **Wallet conectada** (Freighter, Albedo ou WalletConnect).
+
+**Ainda desconhecido:** prazo, valores e critérios de julgamento — só aparecem
+logado. Vale conferir se as *bounties* têm escopo fechado: as descrições que
+temos são de sub-lane ("examples of what you can build"), e uma bounty com
+requisitos próprios pode não casar com o que foi construído.
+
+**Primitiva de privacidade não explorada:** *Stellar Private Payments* (SPP,
+Nethermind) — privacy pool com Circom/Groth16, esconde **quem paga quem**.
+Complementar aos Confidential Tokens, que escondem **quanto**. Para tesouraria
+corporativa a escolha atual é a correta: numa folha de pagamento as partes devem
+ser identificáveis pelo auditor, e só o valor precisa ficar oculto. Anonimato de
+grafo seria o oposto do que compliance pede — resposta pronta para o Q&A.
+
+---
+
 ## Bloqueios que dependem de ação humana
 
 1. **x402 — `OZ_API_KEY`**: gerar em <https://channels.openzeppelin.com/testnet/gen>
