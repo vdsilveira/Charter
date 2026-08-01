@@ -21,6 +21,14 @@ export interface ConstituirFormProps {
   /** Injetável para teste; em produção chama a rota que monta o create_org. */
   onSubmit?: (c: Constituicao) => Promise<{ hash: string; account: string }>;
   agentesIniciais?: AgenteForm[];
+  /** Taxa em stroops, lida do contrato. "0" = constituição gratuita. */
+  taxa?: string;
+}
+
+/** Stroops para XLM legível — 7 casas, sem zeros à toa. */
+function emXlm(stroops: string): string {
+  const n = Number(stroops) / 10_000_000;
+  return `${n % 1 === 0 ? n : Number(n.toFixed(4))} XLM`;
 }
 
 const PADRAO: AgenteForm[] = [{ label: "", allowedFns: ["transfer"], kybThreshold: "500" }];
@@ -47,7 +55,9 @@ async function submitPadrao(c: Constituicao) {
 export default function ConstituirForm({
   onSubmit = submitPadrao,
   agentesIniciais = PADRAO,
+  taxa = "0",
 }: ConstituirFormProps) {
+  const cobra = Number(taxa) > 0;
   const [org, setOrg] = useState("");
   const [agentes, setAgentes] = useState<AgenteForm[]>(agentesIniciais);
   const [erro, setErro] = useState<string | null>(null);
@@ -97,6 +107,21 @@ export default function ConstituirForm({
           Uma transação cria a conta corporativa e a procuração de cada agente.
         </p>
       </header>
+
+      {cobra && (
+        <Card>
+          <CardContent className="flex items-baseline justify-between gap-4 pt-5">
+            <div>
+              <p className="text-sm font-medium">Taxa de constituição</p>
+              <p className="text-xs text-neutral-500">
+                Cobrada na mesma transação que cria a organização — não há como constituir sem
+                pagar, nem pagar sem constituir.
+              </p>
+            </div>
+            <p className="whitespace-nowrap text-lg font-semibold">{emXlm(taxa)}</p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

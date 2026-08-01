@@ -158,18 +158,20 @@ function gateParams(a: AgenteEntrada, identityVerifier: string, claimTopic: numb
 }
 
 /** `AgentRule { label, policies, signers, target, valid_until }` */
-function agentRule(a: AgenteEntrada, pubkey: Buffer, cfg: {
+function agentRule(a: AgenteEntrada, pubkey: Buffer | null, cfg: {
   gate: string;
   verifier: string;
   target: string;
   identityVerifier: string;
   claimTopic: number;
+  /** Carteira do agente. Quando presente, o signatário é ela, via Delegated. */
+  delegado?: string;
 }) {
-  const signer = xdr.ScVal.scvVec([
-    sym("External"),
-    addr(cfg.verifier),
-    xdr.ScVal.scvBytes(pubkey),
-  ]);
+  // `Delegated` faz a conta delegar a verificação ao endereço do agente: ele
+  // assina com a própria carteira, sem verifier externo no caminho.
+  const signer = cfg.delegado
+    ? xdr.ScVal.scvVec([sym("Delegated"), addr(cfg.delegado)])
+    : xdr.ScVal.scvVec([sym("External"), addr(cfg.verifier), xdr.ScVal.scvBytes(pubkey!)]);
   return xdr.ScVal.scvMap([
     entry("label", xdr.ScVal.scvString(a.label)),
     entry(
@@ -236,4 +238,73 @@ export async function constituirOrg({
     account: String(scValToNative(res.returnValue!)),
     agentes: agentes.map((a, i) => ({ label: a.label, publicKey: chaves[i].publicKey() })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Gestão de agentes
+// ---------------------------------------------------------------------------
+
+/**
+ * Adiciona um agente com a carteira que o administrador indicar.
+ *
+ * A autorização vem da regra do administrador dentro da conta corporativa
+ * (`Signer::Delegated`), então basta o fundador assinar a transação. A chave do
+ * agente nunca passa por aqui: o que se registra é o endereço dele.
+ */
+export async function adicionarAgente(
+  org: string,
+  a: { label: string; carteira: string; allowedFns: string[]; kybThreshold: string },
+) {
+  const admin = Keypair.fromSecret(env("ADMIN_SECRET"));
+  const registry = env("CHARTER_REGISTRY");
+  const gate = env("CHARTER_GATE");
+
+  const regra = agentRule(
+    { label: a.label, allowedFns: a.allowedFns, kybThreshold: a.kybThreshold },
+    // `Signer::Delegated` aceita o endereço da carteira direto — sem verifier
+    // externo e sem chave pública em bytes.
+    null,
+    {
+      gate,
+      verifier: env("CHARTER_ED25519_VERIFIER"),
+      target: env("CHARTER_TARGET"),
+      identityVerifier: env("CHARTER_IDENTITY_VERIFIER"),
+      claimTopic: Number(process.env.CHARTER_CLAIM_TOPIC ?? 1),
+      delegado: a.carteira,
+    },
+  );
+
+  const fonte = await server.getAccount(admin.publicKey());
+  const tx = new TransactionBuilder(fonte, { fee: "5000000", networkPassphrase: PASS })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: registry,
+        function: "add_agent",
+        args: [sym(org), regra],
+      }),
+    )
+    .setTimeout(60)
+    .build();
+
+  const { hash } = await enviar(tx, admin);
+  return { hash, label: a.label, carteira: a.carteira };
+}
+
+export async function removerAgente(org: string, label: string) {
+  const admin = Keypair.fromSecret(env("ADMIN_SECRET"));
+  const fonte = await server.getAccount(admin.publicKey());
+
+  const tx = new TransactionBuilder(fonte, { fee: "5000000", networkPassphrase: PASS })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: env("CHARTER_REGISTRY"),
+        function: "remove_agent",
+        args: [sym(org), sym(label)],
+      }),
+    )
+    .setTimeout(60)
+    .build();
+
+  const { hash } = await enviar(tx, admin);
+  return { hash, label };
 }

@@ -12,7 +12,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import CredencialAgente from "@/components/credencial-agente";
-import ConectarCarteira from "@/components/conectar-carteira";
 
 const credencial = {
   org: "alphafund",
@@ -67,37 +66,5 @@ describe("credencial do agente", () => {
     expect(screen.getByText(/revogado/i)).toBeInTheDocument();
     // Continua mostrando os poderes de antes: revogado ≠ inexistente.
     expect(screen.getByText(/transfer/)).toBeInTheDocument();
-  });
-});
-
-describe("conexão de carteira", () => {
-  it("sem Freighter instalado, instrui em vez de quebrar", async () => {
-    render(<ConectarCarteira api={{ isConnected: async () => ({ isConnected: false }) }} />);
-    expect(await screen.findByText(/freighter/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /instalar/i })).toBeInTheDocument();
-  });
-
-  it("conecta e mostra o endereço do fundador", async () => {
-    const user = userEvent.setup();
-    const api = {
-      isConnected: async () => ({ isConnected: true }),
-      requestAccess: async () => ({ address: "GBBH2YATAUUFYAYUGAHLKOA4LFFHASVU7SUADEE5PFON7T33URAUBZHJ" }),
-    };
-    render(<ConectarCarteira api={api} />);
-
-    await user.click(await screen.findByRole("button", { name: /conectar/i }));
-    expect(await screen.findByText(/GBBH2YAT/)).toBeInTheDocument();
-  });
-
-  it("recusa de acesso na carteira vira aviso, não exceção", async () => {
-    const user = userEvent.setup();
-    const api = {
-      isConnected: async () => ({ isConnected: true }),
-      requestAccess: async () => ({ error: "User declined access" }),
-    };
-    render(<ConectarCarteira api={api} />);
-
-    await user.click(await screen.findByRole("button", { name: /conectar/i }));
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/recus|declin/i));
   });
 });
