@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { env } from "@/lib/env-servidor";
 import { buscarOrganizacoes } from "@/lib/minhas-orgs";
 
 export const dynamic = "force-dynamic";
@@ -16,13 +17,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "connect a wallet first" }, { status: 400 });
   }
 
-  const registro = process.env.CHARTER_REGISTRY;
-  if (!registro) {
-    return NextResponse.json({ error: "registry address not configured" }, { status: 500 });
-  }
-
   try {
-    return NextResponse.json({ orgs: await buscarOrganizacoes(fundador, registro) });
+    return NextResponse.json({ orgs: await buscarOrganizacoes(fundador, env("CHARTER_REGISTRY")) });
   } catch (e) {
     return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 502 });
   }
