@@ -58,7 +58,7 @@ export default function Home() {
         {[
           { href: "/constituir", titulo: "Charter an organization", texto: "Corporate account and powers of attorney in one transaction." },
           { href: "/console", titulo: "Operator console", texto: "Decisions, ranking and payment with the refusal predicted." },
-          { href: "/o/alphafund", titulo: "Public credential", texto: "What the counterparty reads before dealing. No wallet." },
+          { href: "/orgs", titulo: "Your organizations", texto: "What this wallet chartered, and the agents in force." },
         ].map((l) => (
           <Link
             key={l.href}

@@ -202,7 +202,7 @@ export default function ConstituirForm({
         <CardContent>
           <label className="block text-sm">
             <span className="mb-1 block text-slate">Organization name</span>
-            <Input value={org} onChange={(e) => setOrg(e.target.value)} placeholder="alphafund" />
+            <Input value={org} onChange={(e) => setOrg(e.target.value)} placeholder="acme" />
           </label>
         </CardContent>
       </Card>

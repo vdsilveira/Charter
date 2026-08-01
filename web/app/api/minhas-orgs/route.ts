@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env-servidor";
+import { orgDe } from "@/lib/chain";
 import { buscarOrganizacoes } from "@/lib/minhas-orgs";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,24 @@ export async function GET(req: Request) {
   }
 
   try {
-    return NextResponse.json({ orgs: await buscarOrganizacoes(fundador, env("CHARTER_REGISTRY")) });
+    const encontradas = await buscarOrganizacoes(fundador, env("CHARTER_REGISTRY"));
+
+    // O histórico diz *quais* organizações são desta carteira — o registro não
+    // indexa por fundador. Quem está em vigor **agora** só o registro sabe, e é
+    // dele que vem a lista de agentes: o histórico mostraria quem havia na
+    // constituição, mesmo que já removido.
+    const orgs = await Promise.all(
+      encontradas.map(async (o) => {
+        try {
+          return { ...o, agentes: (await orgDe(o.org)).agents };
+        } catch {
+          // Organização ilegível não some da lista: o nome ainda é útil.
+          return o;
+        }
+      }),
+    );
+
+    return NextResponse.json({ orgs });
   } catch (e) {
     return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 502 });
   }

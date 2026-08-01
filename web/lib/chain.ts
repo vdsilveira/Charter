@@ -8,6 +8,9 @@
 import {
   Account, Address, Keypair, Networks, Operation, TransactionBuilder, rpc, scValToNative, xdr,
 } from "@stellar/stellar-sdk";
+// Importado pelo efeito: carrega o `.env.demo` antes de `REGISTRY` ser lido
+// abaixo. Sem isso, quem importar este módulo primeiro pega string vazia.
+import "./env-servidor";
 
 const RPC = process.env.STELLAR_RPC ?? "https://soroban-testnet.stellar.org";
 export const PASS = Networks.TESTNET;
@@ -147,3 +150,27 @@ export async function ranking(org: string, labels: string[]) {
 }
 
 export { Address };
+
+export interface InfoOrg {
+  name: string;
+  founder: string;
+  account: string;
+  agents: string[];
+}
+
+/**
+ * A organização como o registro a conhece **agora**.
+ *
+ * É daqui que sai a lista de agentes. O histórico da conta serve para descobrir
+ * *quais* organizações uma carteira fundou — o registro não indexa por
+ * fundador —, mas quem foi adicionado ou removido depois só o registro sabe.
+ */
+export async function orgDe(org: string): Promise<InfoOrg> {
+  const info = await simular(REGISTRY, "org_of", [sym(org)]);
+  return {
+    name: String(info.name),
+    founder: String(info.founder),
+    account: String(info.account),
+    agents: (info.agents ?? []).map(String),
+  };
+}

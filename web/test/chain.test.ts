@@ -84,4 +84,18 @@ describe("leitura da cadeia", () => {
       expect(typeof x.counterpartyVerified).toBe("boolean");
     }
   });
+
+  it("org_of devolve fundador e os agentes atuais", { timeout: 60_000 }, async () => {
+    const info = await chain.orgDe("matrix");
+
+    // A lista de agentes vem do registro, não de um padrão no código: era o
+    // `trader,auditor` fixo que escondia um agente chamado "Neo".
+    expect(info.agents).toContain("Neo");
+    expect(info.founder).toMatch(/^G/);
+    expect(info.account).toMatch(/^C/);
+  });
+
+  it("organização inexistente vira 404, não 500", { timeout: 60_000 }, async () => {
+    await expect(chain.orgDe("naoexiste")).rejects.toMatchObject({ status: 404 });
+  });
 });

@@ -27,7 +27,8 @@ este arquivo diz **onde paramos**.
 | Gestão de agentes | ⚠️ **bloqueado on-chain** | só passa em teste de contrato; ver §Auth fora da raiz |
 | Carteira Freighter | ✅ | rede validada antes de assinar |
 | Constituição assinada pelo fundador | ✅ | `matrix` criada na testnet pela carteira do usuário |
-| Minhas organizações (`/orgs`) | ✅ | lista do histórico da conta; nome e agentes reais |
+| Minhas organizações (`/orgs`) | ✅ | nomes do histórico, agentes de `org_of` |
+| Console e credencial por carteira | ✅ | `seletor-org` resolve; `alphafund` saiu dos padrões |
 | Domínio e subdomínio (SEP-2) | ✅ | `trader*charter.local` resolve na rede |
 | Docker x402 | ✅ | compose com vendedor, agente e app |
 | Layout do app | ✅ | sistema visual próprio, claro e escuro |
@@ -133,10 +134,22 @@ interface:
 - os rótulos de agente eram um padrão fixo no código (`trader,auditor`), então
   um agente chamado `Neo` não existia para a interface.
 
-`lib/minhas-orgs.ts` resolve sem tocar no contrato: toda constituição é uma
-invocação de `create_org` assinada pelo fundador, com nome e agentes nos
-argumentos. Basta reduzir as operações da conta no Horizon. Continua leitura da
-cadeia — o Horizon indexa o que o ledger já contém.
+**`org_of(name) -> OrgInfo` já existia** e devolve `founder`, `account` e
+`agents`. O padrão fixo era desnecessário desde sempre: o registro sabe quem são
+os agentes. Toda leitura de rótulo passou a vir daí — credencial pública,
+ranking, console e painel de gestão.
+
+O que o registro **não** sabe é quais organizações pertencem a uma carteira.
+Para isso, `lib/minhas-orgs.ts` reduz as operações da conta no Horizon: toda
+constituição é um `create_org` assinado pelo fundador, com o nome nos
+argumentos. A divisão ficou assim, e importa:
+
+| Pergunta | Fonte |
+|---|---|
+| quais organizações são desta carteira | histórico da conta (Horizon) |
+| quem são os agentes **agora** | `org_of` no registro |
+
+O histórico mostraria quem havia na constituição, mesmo que já removido.
 
 O parser é puro e tem 9 testes; a busca fica separada. Ele acumula `add_agent`,
 desconta `remove_agent`, descarta transação revertida e ignora invocações de
@@ -361,10 +374,15 @@ wallet" de novo no Console.
   linguagens. O `.mjs` serve os scripts em Node puro; o `.ts`, as rotas do app.
   Se um mudar sem o outro, demo e aplicação divergem. Estão marcados como gêmeos
   no cabeçalho.
-- **`/console` ainda aponta para uma organização fixa** (`NEXT_PUBLIC_ORG ??
-  "alphafund"`). O feed, o pagamento e o ranking são daquela organização, não
-  da que o usuário acabou de fundar. `/orgs` cobre a descoberta e a gestão; o
-  console é o próximo a receber a organização por rota.
+- **O feed (`/api/feed`) ainda é global**, não por organização: mostra as
+  decisões de política que a RPC devolve, sem filtrar pela conta corporativa da
+  organização escolhida. O ranking e o pagamento já seguem a seleção.
+- **`app/federation/route.ts` serve `CHARTER_ORG ?? "alphafund"`.** Um domínio
+  SEP-2 serve uma organização, então o padrão faz sentido — mas continua sendo
+  a organização da demo.
+- **A landing ainda mostra `/o/alphafund`** em "See a live credential". Ali é
+  proposital: é a vitrine para quem chega sem carteira. Se `alphafund` sair do
+  ar, esse link precisa de outra organização pública.
 - **O pagamento do agente ainda assina no servidor**, com `AGENT_TRADER_SECRET`.
   Ali é o modelo certo: o agente é uma máquina com chave própria, não uma
   pessoa diante de um pop-up. A constituição, que é ato de pessoa, passou a ser

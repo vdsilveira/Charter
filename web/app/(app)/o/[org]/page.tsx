@@ -1,5 +1,5 @@
 import CredencialAgente from "@/components/credencial-agente";
-import { credencialDe } from "@/lib/chain";
+import { credencialDe, orgDe } from "@/lib/chain";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,13 @@ export default async function PaginaOrg({
 }) {
   const { org } = await params;
   const { agents } = await searchParams;
-  const labels = (agents ?? "trader,auditor").split(",").map((s) => s.trim());
+
+  // Os rótulos vêm do registro. O padrão fixo que existia aqui
+  // (`trader,auditor`) fazia um agente de nome próprio não aparecer na
+  // credencial — que é justamente a página que a contraparte lê.
+  const labels = agents
+    ? agents.split(",").map((s) => s.trim())
+    : await orgDe(org).then((i) => i.agents).catch(() => []);
 
   const credenciais = [];
   for (const label of labels) {
