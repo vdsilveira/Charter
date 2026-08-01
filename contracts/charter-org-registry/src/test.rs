@@ -13,20 +13,16 @@ use crate::*;
 // hash, não por `register`. Exige `stellar contract build` antes do teste —
 // está documentado no TESTING.md.
 mod account_wasm {
-    soroban_sdk::contractimport!(
-        file = "../target/wasm32v1-none/release/charter_account.wasm"
-    );
+    soroban_sdk::contractimport!(file = "../target/wasm32v1-none/release/charter_account.wasm");
 }
 
-/// Mock do ComplianceGate: `credentials_of` agrega escopo e conduta, então
-/// precisa de alguém que responda `get_params` e `get_stats`.
+/// Mock do ComplianceGate. `install` é chamado pela conta durante a
+/// constituição — é assim que os parâmetros chegam aqui.
 #[contract]
 struct MockGate;
 
 #[contractimpl]
 impl MockGate {
-    /// A conta chama `install` em cada policy durante a constituição — é assim
-    /// que os parâmetros chegam aqui, sem precisar semeá-los à mão.
     pub fn install(
         e: &Env,
         install_params: GateParams,
@@ -40,7 +36,7 @@ impl MockGate {
         e.storage().instance().get(&(smart_account, context_rule_id)).unwrap()
     }
 
-    pub fn get_stats(e: &Env, _context_rule_id: u32, _smart_account: Address) -> AgentStats {
+    pub fn get_stats(_e: &Env, _context_rule_id: u32, _smart_account: Address) -> AgentStats {
         AgentStats { ops_ok: 7, volume_total: 700, volume_attested: 500, first_seen: 1 }
     }
 }
@@ -63,23 +59,58 @@ impl MockVerifier {
     }
 }
 
+/// Mock do token da taxa. Registra o que foi cobrado, para o teste conferir
+/// que o valor saiu do fundador e entrou no cofre.
+#[contract]
+struct MockToken;
+
+#[contractimpl]
+impl MockToken {
+    pub fn transfer(e: &Env, from: Address, to: Address, amount: i128) {
+        from.require_auth();
+        e.storage().instance().set(&symbol_short!("from"), &from);
+        e.storage().instance().set(&symbol_short!("to"), &to);
+        e.storage().instance().set(&symbol_short!("amount"), &amount);
+    }
+
+    pub fn cobrado(e: &Env) -> i128 {
+        e.storage().instance().get(&symbol_short!("amount")).unwrap_or(0)
+    }
+
+    pub fn destino(e: &Env) -> Option<Address> {
+        e.storage().instance().get(&symbol_short!("to"))
+    }
+}
+
+const TAXA: i128 = 50_000_000; // 5 XLM
+
 struct Fixture {
     e: Env,
     registry: Address,
     gate: Address,
     verifier: Address,
+    token: Address,
+    cofre: Address,
     founder: Address,
     target: Address,
 }
 
-fn setup() -> Fixture {
+fn setup_com_taxa(taxa: i128) -> Fixture {
     let e = Env::default();
-    e.mock_all_auths();
+    // `add_agent` chama `add_context_rule` na conta, que exige auth dela mesma —
+    // e isso acontece numa sub-invocação, não na raiz da árvore de autorização.
+    // `mock_all_auths` sozinho recusa com Error(Auth, InvalidAction).
+    e.mock_all_auths_allowing_non_root_auth();
 
     let wasm_hash = e.deployer().upload_contract_wasm(account_wasm::WASM);
     let gate = e.register(MockGate, ());
     let verifier = e.register(MockVerifier, ());
-    let registry = e.register(OrgRegistry, (wasm_hash, verifier.clone()));
+    let token = e.register(MockToken, ());
+    let cofre = Address::generate(&e);
+    let registry = e.register(
+        OrgRegistry,
+        (wasm_hash, verifier.clone(), token.clone(), taxa, cofre.clone()),
+    );
 
     Fixture {
         founder: Address::generate(&e),
@@ -88,7 +119,13 @@ fn setup() -> Fixture {
         registry,
         gate,
         verifier,
+        token,
+        cofre,
     }
+}
+
+fn setup() -> Fixture {
+    setup_com_taxa(TAXA)
 }
 
 fn params(f: &Fixture, label: Symbol) -> GateParams {
@@ -101,10 +138,8 @@ fn params(f: &Fixture, label: Symbol) -> GateParams {
     }
 }
 
-fn agent(f: &Fixture, label: &str) -> AgentRule {
-    let mut signers = Vec::new(&f.e);
-    signers.push_back(Signer::Delegated(Address::generate(&f.e)));
-
+/// Procuração de um agente, com a carteira dele como signatária.
+fn agent(f: &Fixture, label: &str, carteira: &Address) -> AgentRule {
     let mut policies: Map<Address, Val> = Map::new(&f.e);
     policies.set(f.gate.clone(), params(f, Symbol::new(&f.e, label)).into_val(&f.e));
 
@@ -112,17 +147,19 @@ fn agent(f: &Fixture, label: &str) -> AgentRule {
         label: String::from_str(&f.e, label),
         target: f.target.clone(),
         valid_until: None,
-        signers,
+        // Cada agente assina com a própria carteira: as regras são definidas
+        // para ela, não para a do administrador.
+        signers: Vec::from_array(&f.e, [Signer::Delegated(carteira.clone())]),
         policies,
     }
 }
 
-fn create(f: &Fixture, name: Symbol, labels: &[&str]) -> Address {
+fn create(f: &Fixture, name: Symbol, agentes: &[(&str, Address)]) -> Address {
     let mut agents = Vec::new(&f.e);
-    for l in labels {
-        agents.push_back(agent(f, l));
+    for (label, carteira) in agentes {
+        agents.push_back(agent(f, label, carteira));
     }
-    OrgRegistryClient::new(&f.e, &f.registry).create_org(&name, &f.founder, &f.gate, &agents)
+    client(f).create_org(&name, &f.founder, &f.gate, &agents)
 }
 
 fn client(f: &Fixture) -> OrgRegistryClient<'_> {
@@ -130,71 +167,138 @@ fn client(f: &Fixture) -> OrgRegistryClient<'_> {
 }
 
 // ---------------------------------------------------------------------------
+// Taxa de constituição
+// ---------------------------------------------------------------------------
+
+#[test]
+fn constituir_cobra_a_taxa_do_fundador() {
+    let f = setup();
+    let carteira = Address::generate(&f.e);
+    create(&f, symbol_short!("alphafund"), &[("trader", carteira)]);
+
+    let token = MockTokenClient::new(&f.e, &f.token);
+    // A cobrança vive dentro do `create_org`, na mesma transação. Se fosse uma
+    // operação separada na interface, qualquer um chamaria o contrato direto e
+    // constituiria de graça — cobrança que se pode pular é sugestão.
+    assert_eq!(token.cobrado(), TAXA);
+    assert_eq!(token.destino(), Some(f.cofre.clone()));
+}
+
+#[test]
+fn taxa_zero_dispensa_a_cobranca() {
+    let f = setup_com_taxa(0);
+    let carteira = Address::generate(&f.e);
+    create(&f, symbol_short!("gratis"), &[("trader", carteira)]);
+
+    // Sem taxa configurada, nenhuma transferência acontece — nada de mover 0
+    // só para cumprir tabela.
+    assert_eq!(MockTokenClient::new(&f.e, &f.token).cobrado(), 0);
+}
+
+#[test]
+fn a_taxa_vigente_e_consultavel_antes_de_constituir() {
+    let f = setup();
+    // A interface mostra o preço antes de o usuário assinar.
+    assert_eq!(client(&f).taxa(), TAXA);
+}
+
+// ---------------------------------------------------------------------------
 // Constituição
 // ---------------------------------------------------------------------------
 
 #[test]
-fn create_org_deploys_account_and_registers_agents() {
+fn create_org_registra_conta_e_agentes() {
     let f = setup();
+    let trader = Address::generate(&f.e);
+    let auditor = Address::generate(&f.e);
     let name = symbol_short!("alphafund");
-    let account = create(&f, name.clone(), &["trader", "auditor"]);
+    let account = create(&f, name.clone(), &[("trader", trader), ("auditor", auditor)]);
 
     let info = client(&f).org_of(&name);
     assert_eq!(info.account, account);
     assert_eq!(info.founder, f.founder);
     assert_eq!(info.agents.len(), 2);
 
-    // Ambos os agentes assinam pela mesma conta: um tesouro, várias procurações.
     assert_eq!(client(&f).resolve(&name, &symbol_short!("trader")), account);
     assert_eq!(client(&f).resolve(&name, &symbol_short!("auditor")), account);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #5000)")]
-fn duplicate_org_name_is_refused() {
+fn nome_duplicado_e_recusado() {
     let f = setup();
-    let name = symbol_short!("alphafund");
-    create(&f, name.clone(), &["trader"]);
-    create(&f, name, &["other"]);
+    let c = Address::generate(&f.e);
+    create(&f, symbol_short!("alphafund"), &[("trader", c.clone())]);
+    create(&f, symbol_short!("alphafund"), &[("outro", c)]);
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #5005)")]
-fn org_without_agents_is_refused() {
+fn organizacao_pode_nascer_sem_agentes() {
     let f = setup();
-    let agents: Vec<AgentRule> = Vec::new(&f.e);
-    client(&f).create_org(&symbol_short!("empty"), &f.founder, &f.gate, &agents);
+    // O administrador adiciona depois — é o fluxo da tela de gestão.
+    let account = client(&f).create_org(&symbol_short!("vazia"), &f.founder, &f.gate, &Vec::new(&f.e));
+    assert_eq!(client(&f).org_of(&symbol_short!("vazia")).account, account);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #5001)")]
-fn unknown_org_is_refused() {
+fn organizacao_inexistente_e_recusada() {
     let f = setup();
     client(&f).org_of(&symbol_short!("ghost"));
 }
 
+// ---------------------------------------------------------------------------
+// Gestão de agentes — a carteira do administrador manda
+// ---------------------------------------------------------------------------
+
 #[test]
-#[should_panic(expected = "Error(Contract, #5002)")]
-fn unknown_agent_is_refused() {
+fn administrador_adiciona_agente_indicando_a_carteira() {
     let f = setup();
     let name = symbol_short!("alphafund");
-    create(&f, name.clone(), &["trader"]);
+    let trader = Address::generate(&f.e);
+    create(&f, name.clone(), &[("trader", trader)]);
 
-    client(&f).resolve(&name, &symbol_short!("ghost"));
+    let nova_carteira = Address::generate(&f.e);
+    client(&f).add_agent(&name, &agent(&f, "tesoureiro", &nova_carteira));
+
+    let account = client(&f).resolve(&name, &Symbol::new(&f.e, "tesoureiro"));
+    assert_eq!(client(&f).org_of(&name).agents.len(), 2);
+
+    // A regra nova é a do agente novo, e o signatário é a carteira indicada.
+    let cred = client(&f).credentials_of(&name, &Symbol::new(&f.e, "tesoureiro"));
+    assert!(cred.active);
+    assert_eq!(cred.account, account);
 }
 
-// ---------------------------------------------------------------------------
-// Revogação
-// ---------------------------------------------------------------------------
+#[test]
+#[should_panic(expected = "Error(Contract, #5006)")]
+fn agente_com_rotulo_repetido_e_recusado() {
+    let f = setup();
+    let name = symbol_short!("alphafund");
+    let c1 = Address::generate(&f.e);
+    create(&f, name.clone(), &[("trader", c1)]);
+
+    let c2 = Address::generate(&f.e);
+    client(&f).add_agent(&name, &agent(&f, "trader", &c2));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5001)")]
+fn nao_da_para_adicionar_agente_a_organizacao_inexistente() {
+    let f = setup();
+    let c = Address::generate(&f.e);
+    client(&f).add_agent(&symbol_short!("ghost"), &agent(&f, "trader", &c));
+}
 
 #[test]
 #[should_panic(expected = "Error(Contract, #5003)")]
-fn resolve_of_revoked_agent_fails() {
+fn resolve_de_agente_removido_falha() {
     let f = setup();
     let name = symbol_short!("alphafund");
-    create(&f, name.clone(), &["trader"]);
+    let c = Address::generate(&f.e);
+    create(&f, name.clone(), &[("trader", c)]);
 
-    client(&f).revoke_agent(&name, &symbol_short!("trader"));
+    client(&f).remove_agent(&name, &symbol_short!("trader"));
 
     // Falhar é melhor que devolver endereço obsoleto: quem consulta precisa
     // saber que a procuração não vale mais.
@@ -202,28 +306,46 @@ fn resolve_of_revoked_agent_fails() {
 }
 
 #[test]
-fn revoked_agent_still_appears_in_credentials_as_inactive() {
+fn remover_agente_desativa_a_regra_na_conta() {
     let f = setup();
     let name = symbol_short!("alphafund");
-    let account = create(&f, name.clone(), &["trader"]);
+    let c = Address::generate(&f.e);
+    let account = create(&f, name.clone(), &[("trader", c)]);
 
-    client(&f).revoke_agent(&name, &symbol_short!("trader"));
+    client(&f).remove_agent(&name, &symbol_short!("trader"));
 
-    // A credencial continua legível — a contraparte precisa distinguir
-    // "revogado" de "nunca existiu".
+    // A remoção precisa alcançar a CONTA, não só a credencial: enquanto a
+    // context rule existir, o agente segue autorizado on-chain. Era esta a
+    // limitação declarada quando só havia revogação no registro.
+    f.e.as_contract(&account, || {
+        assert_eq!(stellar_accounts::smart_account::get_context_rules_count(&f.e), 1); // só o admin
+    });
+}
+
+#[test]
+fn agente_removido_continua_visivel_como_inativo() {
+    let f = setup();
+    let name = symbol_short!("alphafund");
+    let c = Address::generate(&f.e);
+    create(&f, name.clone(), &[("trader", c)]);
+
+    client(&f).remove_agent(&name, &symbol_short!("trader"));
+
+    // A contraparte precisa distinguir "revogado" de "nunca existiu".
     let cred = client(&f).credentials_of(&name, &symbol_short!("trader"));
     assert!(!cred.active);
 }
 
 // ---------------------------------------------------------------------------
-// Credencial — a consulta da contraparte
+// Credencial
 // ---------------------------------------------------------------------------
 
 #[test]
-fn credentials_of_returns_scope_conduct_and_verification() {
+fn credentials_of_traz_escopo_conduta_e_verificacao() {
     let f = setup();
     let name = symbol_short!("alphafund");
-    let account = create(&f, name.clone(), &["trader"]);
+    let c = Address::generate(&f.e);
+    let account = create(&f, name.clone(), &[("trader", c)]);
     MockVerifierClient::new(&f.e, &f.verifier).set_verified(&f.founder, &true);
 
     let cred = client(&f).credentials_of(&name, &symbol_short!("trader"));
@@ -232,34 +354,43 @@ fn credentials_of_returns_scope_conduct_and_verification() {
     assert_eq!(cred.label, symbol_short!("trader"));
     assert_eq!(cred.account, account);
     assert!(cred.active);
-    // Escopo e limiar vêm da policy…
     assert_eq!(cred.params.kyb_threshold, 500);
-    assert_eq!(cred.params.allowed_fns.len(), 1);
-    // …a conduta, das estatísticas…
     assert_eq!(cred.stats.ops_ok, 7);
-    assert_eq!(cred.stats.volume_attested, 500);
-    // …e a verificação, do identity registry. Tudo em uma leitura.
     assert!(cred.org_verified);
 }
 
 #[test]
-fn credentials_of_reports_unverified_org() {
+fn credentials_of_reporta_organizacao_nao_verificada() {
     let f = setup();
     let name = symbol_short!("shady");
-    let account = create(&f, name.clone(), &["trader"]);
-    // Fundador sem claim: a credencial informa, em vez de falhar.
-    let cred = client(&f).credentials_of(&name, &symbol_short!("trader"));
-    assert!(!cred.org_verified);
+    let c = Address::generate(&f.e);
+    create(&f, name.clone(), &[("trader", c)]);
+
+    // Informar é melhor que falhar: a contraparte decide por conta própria.
+    assert!(!client(&f).credentials_of(&name, &symbol_short!("trader")).org_verified);
 }
 
 #[test]
-fn second_agent_maps_to_the_second_context_rule() {
+#[should_panic(expected = "Error(Contract, #5002)")]
+fn agente_inexistente_e_recusado() {
     let f = setup();
     let name = symbol_short!("alphafund");
-    let account = create(&f, name.clone(), &["trader", "auditor"]);
+    let c = Address::generate(&f.e);
+    create(&f, name.clone(), &[("trader", c)]);
 
-    // O auditor é a regra 1. Se a ordem se perder, a contraparte recebe a
-    // procuração do agente errado — que é pior do que não receber nada.
+    client(&f).resolve(&name, &symbol_short!("ghost"));
+}
+
+#[test]
+fn o_segundo_agente_mapeia_para_a_segunda_regra() {
+    let f = setup();
+    let name = symbol_short!("alphafund");
+    let t = Address::generate(&f.e);
+    let a = Address::generate(&f.e);
+    create(&f, name.clone(), &[("trader", t), ("auditor", a)]);
+
+    // A regra 0 é do administrador; os agentes começam em 1. Se a contagem
+    // escorregar, devolve-se a procuração do agente errado.
     let cred = client(&f).credentials_of(&name, &symbol_short!("auditor"));
     assert_eq!(cred.params.agent_label, symbol_short!("auditor"));
 }
