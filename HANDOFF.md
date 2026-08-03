@@ -292,11 +292,19 @@ Enquanto ela não for definida, operar `/admin` exige ter `ADMIN_SECRET` na
 carteira — o que na testnet é aceitável e em produção não seria: essa chave é
 também deployer, patrocinador e fundadora da `alphafund`.
 
-**O portão.** Endereço declarado não prova nada — o cliente manda o que quiser.
-`GET /api/admin/desafio` emite um nonce, a carteira assina com `signMessage`, e
-`POST /api/admin/kyb` confere a assinatura contra a chave do admin antes de ler
-o resto do corpo. Nonce vale uma vez e expira em 5 min. 9 testes cobrem
-principalmente as formas de burlar.
+**O portão é assinatura de transação, no desenho do SEP-10.** `GET
+/api/admin/desafio` devolve uma transação com **sequência 0** — impossível de
+submeter —, a carteira a assina, e `POST /api/admin/kyb` confere a assinatura
+contra o hash antes de ler o resto do corpo. Vale uma vez e expira em 5 min.
+
+**`signMessage` foi tentado primeiro e custou cinco rodadas.** A biblioteca do
+Freighter só repassa o blob para a extensão, e é ela que decide o que assinar;
+foram tentadas sete formas (bytes crus, base64, sha256 de cada, prefixo
+"Stellar Signed Message") e nenhuma bateu. A lição não é sobre o Freighter: era
+um ponto de integração que eu **não conseguia verificar daqui**, e cada correção
+virava um chute com ciclo de ida e volta pelo usuário. Assinatura de transação
+não tem ambiguidade — o payload é o hash, definido pelo protocolo — e já era o
+caminho provado nesta carteira pela constituição, aporte e saque.
 
 **Armadilha achada rodando:** o Next empacota **cada rota separadamente**, então
 o `Map` de desafios pendentes era instanciado uma vez por rota — o nonce criado

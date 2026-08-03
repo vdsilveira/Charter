@@ -10,7 +10,14 @@
  * testes cobrirem principalmente as formas de burlá-lo.
  */
 import { readFileSync } from "node:fs";
-import { Keypair, hash } from "@stellar/stellar-sdk";
+import {
+  Account,
+  Keypair,
+  Networks,
+  Operation,
+  Transaction,
+  TransactionBuilder,
+} from "@stellar/stellar-sdk";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { aplicarEnv } from "@/lib/env-demo";
 
@@ -28,234 +35,111 @@ beforeEach(() => mod.limparDesafios());
 // seguintes o administrador de um deles.
 afterEach(() => delete process.env.PLATFORM_ADMIN);
 
-const assinar = (kp: Keypair, nonce: string) =>
-  kp.sign(Buffer.from(nonce, "utf8")).toString("base64");
-
 describe("portão de administração", () => {
-  it("aceita o admin com assinatura válida", () => {
-    const nonce = mod.criarDesafio();
-    expect(
-      mod.conferirResposta({
-        nonce,
-        endereco: admin.publicKey(),
-        assinatura: assinar(admin, nonce),
-      }),
-    ).toBeNull();
+  /**
+   * O portão usa **assinatura de transação**, não de mensagem.
+   *
+   * `signMessage` foi tentado primeiro e custou cinco rodadas: a extensão
+   * decide o que fazer com o blob, a biblioteca só repassa, e nenhuma das sete
+   * formas plausíveis batia. Assinatura de transação não tem essa ambiguidade —
+   * o que se assina é o hash da transação, definido pelo protocolo — e é o
+   * mesmo caminho que a constituição e o aporte já usam nesta carteira.
+   *
+   * É o desenho do SEP-10: a transação nasce com sequência 0, o que a torna
+   * **impossível de submeter**. Ela serve só como prova de posse da chave.
+   */
+  function assinar(kp: Keypair, xdr: string): string {
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET);
+    tx.sign(kp);
+    return tx.toXDR();
+  }
+
+  it("aceita a transação de desafio assinada pelo administrador", () => {
+    const { xdr } = mod.criarDesafio(admin.publicKey());
+    expect(mod.conferirResposta({ xdr: assinar(admin, xdr) })).toBeNull();
   });
 
-  it("recusa outra carteira, mesmo com assinatura própria válida", () => {
-    // O caso que importa: a assinatura é legítima, só não é do admin.
+  it("recusa outra carteira, mesmo com assinatura válida", () => {
     const intruso = Keypair.random();
-    const nonce = mod.criarDesafio();
-
-    expect(
-      mod.conferirResposta({
-        nonce,
-        endereco: intruso.publicKey(),
-        assinatura: assinar(intruso, nonce),
-      }),
-    ).toMatch(/not the platform administrator/i);
+    const { xdr } = mod.criarDesafio(intruso.publicKey());
+    expect(mod.conferirResposta({ xdr: assinar(intruso, xdr) })).toMatch(
+      /not the platform administrator/i,
+    );
   });
 
-  it("recusa endereço de admin sem a assinatura correspondente", () => {
+  it("recusa transação sem assinatura", () => {
+    const { xdr } = mod.criarDesafio(admin.publicKey());
+    expect(mod.conferirResposta({ xdr })).toMatch(/signature/i);
+  });
+
+  it("recusa assinatura de chave diferente da fonte", () => {
     // Declarar o endereço do admin é trivial; provar a posse da chave, não.
-    const nonce = mod.criarDesafio();
-    expect(
-      mod.conferirResposta({
-        nonce,
-        endereco: admin.publicKey(),
-        assinatura: assinar(Keypair.random(), nonce),
-      }),
-    ).toMatch(/signature does not match/i);
-  });
-
-  it("recusa assinatura de outro desafio", () => {
-    // Sem isto, uma assinatura capturada valeria para sempre.
-    const antigo = mod.criarDesafio();
-    const atual = mod.criarDesafio();
-
-    expect(
-      mod.conferirResposta({
-        nonce: atual,
-        endereco: admin.publicKey(),
-        assinatura: assinar(admin, antigo),
-      }),
-    ).toMatch(/signature does not match/i);
+    const { xdr } = mod.criarDesafio(admin.publicKey());
+    expect(mod.conferirResposta({ xdr: assinar(Keypair.random(), xdr) })).toMatch(/signature/i);
   });
 
   it("um desafio serve uma vez só", () => {
-    const nonce = mod.criarDesafio();
-    const resposta = { nonce, endereco: admin.publicKey(), assinatura: assinar(admin, nonce) };
+    const { xdr } = mod.criarDesafio(admin.publicKey());
+    const assinada = assinar(admin, xdr);
 
-    expect(mod.conferirResposta(resposta)).toBeNull();
-    // Replay: mesma resposta, segunda vez.
-    expect(mod.conferirResposta(resposta)).toMatch(/unknown or already used/i);
+    expect(mod.conferirResposta({ xdr: assinada })).toBeNull();
+    // Reapresentar uma transação capturada não pode funcionar.
+    expect(mod.conferirResposta({ xdr: assinada })).toMatch(/unknown or already used/i);
   });
 
   it("desafio expirado não vale", () => {
-    const nonce = mod.criarDesafio(0);
-    expect(
-      mod.conferirResposta(
-        { nonce, endereco: admin.publicKey(), assinatura: assinar(admin, nonce) },
-        10 * 60_000,
-      ),
-    ).toMatch(/expired/i);
+    const { xdr } = mod.criarDesafio(admin.publicKey(), 0);
+    expect(mod.conferirResposta({ xdr: assinar(admin, xdr) }, 10 * 60_000)).toMatch(/expired/i);
   });
 
-  it("desafio inventado é recusado", () => {
-    expect(
-      mod.conferirResposta({
-        nonce: "charter-admin-0-inventado",
-        endereco: admin.publicKey(),
-        assinatura: assinar(admin, "charter-admin-0-inventado"),
-      }),
-    ).toMatch(/unknown/i);
+  it("transação forjada fora do servidor é recusada", () => {
+    // Sem o nonce que emitimos, não há desafio nenhum a responder.
+    const forjada = new TransactionBuilder(new Account(admin.publicKey(), "-1"), {
+      fee: "100",
+      networkPassphrase: Networks.TESTNET,
+    })
+      // Nome certo, nonce inventado: é o caminho que importa — sem um desafio
+      // que o servidor tenha emitido, não há o que responder.
+      .addOperation(Operation.manageData({ name: "charter admin auth", value: "inventado" }))
+      .setTimeout(300)
+      .build();
+    forjada.sign(admin);
+
+    expect(mod.conferirResposta({ xdr: forjada.toXDR() })).toMatch(/unknown/i);
   });
 
-  it("assinatura malformada vira recusa, não exceção", () => {
-    const nonce = mod.criarDesafio();
-    expect(
-      mod.conferirResposta({ nonce, endereco: admin.publicKey(), assinatura: "não é base64 %%%" }),
-    ).toBeTruthy();
+  it("a transação de desafio não pode ser submetida", () => {
+    const { xdr } = mod.criarDesafio(admin.publicKey());
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
+
+    // Sequência 0 é o que garante isso, e é o motivo de o SEP-10 usá-la: a
+    // carteira assina uma prova, nunca uma ordem.
+    expect(tx.sequence).toBe("0");
   });
 
-  it("dois desafios nunca colidem", () => {
-    const vistos = new Set(Array.from({ length: 50 }, () => mod.criarDesafio()));
-    expect(vistos.size).toBe(50);
+  it("XDR malformado vira recusa, não exceção", () => {
+    expect(mod.conferirResposta({ xdr: "não é xdr" })).toBeTruthy();
   });
 
   it("o administrador da plataforma pode ser outra carteira que não a que assina", async () => {
-    // Dois papéis diferentes: quem **pode pedir** a emissão e qual chave
-    // **assina** na cadeia. A segunda vive no servidor por necessidade; a
-    // primeira é só uma conferência de endereço, e não precisa ser a mesma.
+    // Dois papéis: quem **pode pedir** a emissão e qual chave **assina** na
+    // cadeia. A segunda vive no servidor por necessidade; a primeira é só uma
+    // conferência de endereço.
     const outra = Keypair.random();
     process.env.PLATFORM_ADMIN = outra.publicKey();
     vi.resetModules();
     const m = await import("@/lib/admin");
 
-    const nonce = m.criarDesafio();
-    expect(
-      m.conferirResposta({
-        nonce,
-        endereco: outra.publicKey(),
-        assinatura: assinar(outra, nonce),
-      }),
-    ).toBeNull();
-  });
-
-  it("configurado o administrador, a chave que assina deixa de servir de senha", async () => {
-    const outra = Keypair.random();
-    process.env.PLATFORM_ADMIN = outra.publicKey();
-    vi.resetModules();
-    const m = await import("@/lib/admin");
-
-    const nonce = m.criarDesafio();
-    // Quem tem `ADMIN_SECRET` já assina tudo na cadeia; o que ele não deve
-    // ganhar de graça é a tela.
-    expect(
-      m.conferirResposta({ nonce, endereco: admin.publicKey(), assinatura: assinar(admin, nonce) }),
-    ).toMatch(/not the platform administrator/i);
+    const { xdr } = m.criarDesafio(outra.publicKey());
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET);
+    tx.sign(outra);
+    expect(m.conferirResposta({ xdr: tx.toXDR() })).toBeNull();
   });
 
   it("sem configuração, cai na chave do servidor", async () => {
     delete process.env.PLATFORM_ADMIN;
     vi.resetModules();
     const m = await import("@/lib/admin");
-
     expect(m.enderecoDoAdmin()).toBe(admin.publicKey());
-  });
-
-  // -------------------------------------------------------------------------
-  // Codificações que a carteira pode devolver
-  //
-  // `signMessage` entrega o blob à extensão, e é **ela** que decide o que
-  // assinar e como devolver — a biblioteca só repassa. Sem um browser aqui, a
-  // saída é aceitar as formas plausíveis.
-  //
-  // Isso não afrouxa o portão: toda candidata continua sendo uma assinatura da
-  // chave do admin sobre dado derivado do nosso nonce. Quem não tem a chave não
-  // produz nenhuma delas.
-  // -------------------------------------------------------------------------
-
-  it("aceita assinatura em hexadecimal", () => {
-    const nonce = mod.criarDesafio();
-    const sig = admin.sign(Buffer.from(nonce, "utf8")).toString("hex");
-    expect(mod.conferirResposta({ nonce, endereco: admin.publicKey(), assinatura: sig })).toBeNull();
-  });
-
-  it("aceita assinatura sobre o sha256 do desafio", () => {
-    // Carteira que assina o hash da mensagem em vez dos bytes crus.
-    const nonce = mod.criarDesafio();
-    const sig = admin.sign(hash(Buffer.from(nonce, "utf8"))).toString("base64");
-    expect(mod.conferirResposta({ nonce, endereco: admin.publicKey(), assinatura: sig })).toBeNull();
-  });
-
-  it("aceita assinatura sobre o desafio em base64", () => {
-    // O cliente manda o desafio em base64; esta é a carteira que assina o texto
-    // recebido como está, sem decodificar.
-    const nonce = mod.criarDesafio();
-    const sig = admin.sign(Buffer.from(Buffer.from(nonce, "utf8").toString("base64"), "utf8"));
-    expect(
-      mod.conferirResposta({
-        nonce,
-        endereco: admin.publicKey(),
-        assinatura: sig.toString("base64"),
-      }),
-    ).toBeNull();
-  });
-
-  it("assinatura de outra carteira não passa em nenhuma codificação", () => {
-    const intruso = Keypair.random();
-    for (const bytes of [
-      Buffer.from(mod.criarDesafio(), "utf8"),
-      hash(Buffer.from("qualquer", "utf8")),
-    ]) {
-      const nonce = mod.criarDesafio();
-      expect(
-        mod.conferirResposta({
-          nonce,
-          endereco: admin.publicKey(),
-          assinatura: intruso.sign(bytes).toString("base64"),
-        }),
-      ).toBeTruthy();
-    }
-  });
-
-  it("aceita a carteira que decodifica o base64 antes de assinar", () => {
-    // É o comportamento documentado do `signBlob` do Freighter, e a razão de o
-    // cliente mandar o desafio já codificado: decodificado, volta a ser
-    // exatamente os bytes do nonce.
-    const nonce = mod.criarDesafio();
-    const decodificado = Buffer.from(Buffer.from(nonce, "utf8").toString("base64"), "base64");
-
-    expect(
-      mod.conferirResposta({
-        nonce,
-        endereco: admin.publicKey(),
-        assinatura: admin.sign(decodificado).toString("base64"),
-      }),
-    ).toBeNull();
-  });
-
-  it("o diagnóstico nomeia o que a carteira assinou", async () => {
-    // Existe porque quatro tentativas seguidas falharam sem dizer a causa. Com
-    // a chave no servidor, dá para responder em vez de adivinhar.
-    const nonce = mod.criarDesafio();
-    const b64 = Buffer.from(nonce, "utf8").toString("base64");
-
-    expect(
-      mod.diagnosticar(nonce, admin.sign(Buffer.from(b64, "utf8")).toString("base64")),
-    ).toMatch(/base64/i);
-    expect(mod.diagnosticar(nonce, admin.sign(Buffer.from(nonce, "utf8")).toString("base64"))).toMatch(
-      /bytes do nonce/i,
-    );
-  });
-
-  it("diagnóstico diz quando nenhuma candidata bate", () => {
-    const nonce = mod.criarDesafio();
-    // Assinatura sobre algo que não deriva do nonce: é o sinal de que a lista
-    // de candidatas está incompleta, e não de que a carteira está errada.
-    const outra = admin.sign(Buffer.from("nada a ver", "utf8")).toString("base64");
-    expect(mod.diagnosticar(nonce, outra)).toMatch(/nenhuma das/i);
   });
 });

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { freighter, type FreighterApi } from "@/lib/carteira";
+import { freighter, PASSPHRASE_TESTNET, type FreighterApi } from "@/lib/carteira";
 
 export interface ResultadoKyb {
   conta: string;
@@ -23,36 +23,27 @@ async function emitirPadrao(
   const wallet = await freighter(api);
 
   const d = await fetch("/api/admin/desafio");
-  const { nonce } = await d.json();
+  const { xdr } = await d.json();
 
-  // O servidor confere esta assinatura contra a chave do admin. Declarar o
-  // endereço não provaria nada — o cliente manda o que quiser.
-  // O blob vai em **base64**, não em texto puro. A extensão trata o que recebe
-  // como base64 e assina os bytes decodificados; mandar texto cru faz ela
-  // assinar lixo, e a recusa aparece como "signature does not match" sem
-  // nenhuma pista do porquê. Com base64, as duas leituras possíveis — decodificar
-  // ou assinar o texto como está — caem em candidatas que o servidor confere.
-  const assinado = await wallet.signMessage?.(btoa(nonce), { address: endereco });
-  const bruta = assinado?.signedMessage;
-  if (!bruta) throw new Error(assinado?.error ?? "signature declined in the wallet");
-
-  // A extensão pode devolver string ou bytes. `Buffer` não existe no browser
-  // sem polyfill, então a conversão é feita com o que o browser tem — usá-lo
-  // aqui era uma suposição minha que teria falhado em silêncio.
-  const assinatura =
-    typeof bruta === "string"
-      ? bruta
-      : btoa(String.fromCharCode(...new Uint8Array(bruta as ArrayLike<number>)));
+  // Assinatura de **transação**, não de mensagem. `signMessage` deixa a extensão
+  // decidir o que assinar, e nenhuma das sete formas plausíveis batia; aqui o
+  // que se assina é o hash da transação, definido pelo protocolo. É o mesmo
+  // caminho que a constituição e o aporte já usam nesta carteira.
+  //
+  // A transação nasce com sequência 0: assinar prova posse da chave e não
+  // autoriza nada, porque a rede nunca a aceitaria.
+  const assinado = await wallet.signTransaction?.(xdr, {
+    networkPassphrase: PASSPHRASE_TESTNET,
+    address: endereco,
+  });
+  if (assinado?.error || !assinado?.signedTxXdr) {
+    throw new Error(assinado?.error ?? "signature declined in the wallet");
+  }
 
   const r = await fetch("/api/admin/kyb", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      nonce,
-      endereco,
-      assinatura,
-      conta,
-    }),
+    body: JSON.stringify({ desafio: assinado.signedTxXdr, conta }),
   });
 
   const corpo = await r.json();

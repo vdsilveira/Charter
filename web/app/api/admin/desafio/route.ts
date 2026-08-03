@@ -3,7 +3,12 @@ import { criarDesafio } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
-/** Um nonce para o admin assinar. Emitir é inofensivo; o que vale é a resposta. */
+/**
+ * A transação de desafio, para a carteira assinar.
+ *
+ * Nasce com sequência 0 — a rede nunca a aceitaria, e é isso que garante que
+ * assinar aqui prova posse da chave sem autorizar coisa alguma.
+ */
 export async function GET() {
-  return NextResponse.json({ nonce: criarDesafio() });
+  return NextResponse.json({ xdr: criarDesafio().xdr });
 }
