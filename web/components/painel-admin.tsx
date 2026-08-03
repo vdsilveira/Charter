@@ -27,7 +27,12 @@ async function emitirPadrao(
 
   // O servidor confere esta assinatura contra a chave do admin. Declarar o
   // endereço não provaria nada — o cliente manda o que quiser.
-  const assinado = await wallet.signMessage?.(nonce, { address: endereco });
+  // O blob vai em **base64**, não em texto puro. A extensão trata o que recebe
+  // como base64 e assina os bytes decodificados; mandar texto cru faz ela
+  // assinar lixo, e a recusa aparece como "signature does not match" sem
+  // nenhuma pista do porquê. Com base64, as duas leituras possíveis — decodificar
+  // ou assinar o texto como está — caem em candidatas que o servidor confere.
+  const assinado = await wallet.signMessage?.(btoa(nonce), { address: endereco });
   const bruta = assinado?.signedMessage;
   if (!bruta) throw new Error(assinado?.error ?? "signature declined in the wallet");
 

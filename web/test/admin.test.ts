@@ -191,7 +191,8 @@ describe("portão de administração", () => {
   });
 
   it("aceita assinatura sobre o desafio em base64", () => {
-    // Carteira que trata o blob recebido como base64 antes de assinar.
+    // O cliente manda o desafio em base64; esta é a carteira que assina o texto
+    // recebido como está, sem decodificar.
     const nonce = mod.criarDesafio();
     const sig = admin.sign(Buffer.from(Buffer.from(nonce, "utf8").toString("base64"), "utf8"));
     expect(
@@ -218,5 +219,21 @@ describe("portão de administração", () => {
         }),
       ).toBeTruthy();
     }
+  });
+
+  it("aceita a carteira que decodifica o base64 antes de assinar", () => {
+    // É o comportamento documentado do `signBlob` do Freighter, e a razão de o
+    // cliente mandar o desafio já codificado: decodificado, volta a ser
+    // exatamente os bytes do nonce.
+    const nonce = mod.criarDesafio();
+    const decodificado = Buffer.from(Buffer.from(nonce, "utf8").toString("base64"), "base64");
+
+    expect(
+      mod.conferirResposta({
+        nonce,
+        endereco: admin.publicKey(),
+        assinatura: admin.sign(decodificado).toString("base64"),
+      }),
+    ).toBeNull();
   });
 });

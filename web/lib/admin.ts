@@ -97,7 +97,17 @@ export function conferirResposta(r: Resposta, agora = Date.now()): string | null
     // da chave do administrador sobre dado derivado deste nonce. Quem não tem
     // a chave não produz nenhuma delas.
     const cru = Buffer.from(r.nonce, "utf8");
-    const cargas = [cru, hash(cru), Buffer.from(cru.toString("base64"), "utf8")];
+    const emBase64 = Buffer.from(cru.toString("base64"), "utf8");
+    const cargas = [
+      // O cliente manda o desafio em base64 para a carteira. Se a extensão o
+      // decodifica, assina exatamente `cru`; se assina o texto como está,
+      // assina `emBase64`. As duas leituras estão cobertas.
+      cru,
+      emBase64,
+      hash(cru),
+      // Tolerância para o caso de a carteira decodificar o que já era texto.
+      Buffer.from(r.nonce, "base64"),
+    ];
     const assinaturas = [
       Buffer.from(r.assinatura, "base64"),
       // Hexadecimal só é tentado quando o texto de fato é hexadecimal; do
