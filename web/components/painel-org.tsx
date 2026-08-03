@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import PainelAgentes, { type AgenteResumo, type NovoAgente } from "@/components/painel-agentes";
 import Tesouro from "@/components/tesouro";
+import Folha from "@/components/folha";
 import Feed, { type Decisao } from "@/components/feed";
 import Leaderboard, { type LinhaAgente } from "@/components/leaderboard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -157,6 +158,11 @@ export default function PainelOrg({ org, api }: { org: string; api?: FreighterAp
       {/* Antes dos agentes: sem saldo, a procuração está certa e a
           transferência falha assim mesmo. */}
       <Tesouro org={org} api={api} />
+
+      {/* Depois do tesouro público e antes dos agentes: são os dois espaços em
+          que a organização move valor, e vê-los lado a lado é o que mostra que a
+          mesma identidade governa os dois. */}
+      <Folha />
 
       <PainelAgentes
         org={org}

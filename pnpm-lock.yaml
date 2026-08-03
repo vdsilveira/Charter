@@ -66,6 +66,9 @@ importers:
 
   web:
     dependencies:
+      '@ctd/sdk':
+        specifier: workspace:*
+        version: link:../vendor/ctd-sdk
       '@radix-ui/react-slot':
         specifier: ^1.1.2
         version: 1.3.3(@types/react@19.2.18)(react@19.2.8)

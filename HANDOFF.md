@@ -273,6 +273,36 @@ ali leva à conclusão errada. O feed usa 5 000 ledgers, cerca de sete horas.
 
 ---
 
+## Folha confidencial — a tela que faltava para a lane 3
+
+`/org/{org}` ganhou o cartão **Confidential payroll**: a organização paga com o
+valor oculto na cadeia. Provado com a transação `ee4bc77f`:
+
+    tópicos: transfer | GDDOKP5D… | GBRAMQ3J…   ← quem pagou quem, visível
+    dados:   b_aud_s, bytes cifrados            ← o valor não aparece
+
+**Roda num processo separado** (`scripts/confidencial.mjs`), e isso não é
+preguiça: o provador carrega wasm do disco e usa worker threads. O bundler do
+Next transforma o `.wasm` em URL estática e o Node tenta buscá-la como HTTP
+(`Failed to parse URL from /_next/static/media/…`); marcar `@ctd/sdk` e as
+transitivas do Noir como `serverExternalPackages` não resolveu — outra
+transitiva volta a ser empacotada. Um processo separado resolve as duas coisas e
+garante que os workers morram junto com ele.
+
+**A chave do tesouro confidencial vive no servidor**, e a tela diz isso. A chave
+de gasto deriva do segredo da conta, e o Freighter não expõe segredo — não há
+como provar no browser sem mudar o modelo de derivação. Fingir que a carteira do
+fundador assinou seria mentira.
+
+**Só se paga a quem já abriu conta confidencial.** O registro é assinado pelo
+próprio destinatário; ninguém pode abri-la em seu nome. A chave de visão dele é
+lida da cadeia (`confidentialBalance`), o que abre a folha a qualquer conta
+registrada — e não só àquelas cujas chaves este servidor conhece.
+
+Cada pagamento leva ~15 s, quase tudo prova.
+
+---
+
 ## O console foi removido — o que foi de cada peça
 
 Tinha três cartões, e cada um teve destino diferente:
