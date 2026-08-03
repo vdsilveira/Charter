@@ -7,7 +7,7 @@
   "scripts": {
     "bootstrap:identity": "./scripts/bootstrap-identity.sh",
     "demo:agent-payment": "node scripts/agent-payment-demo.mjs",
-    "x402:server": "node src/x402-server.mjs",
+    "x402:server": "node --env-file-if-exists=.env.simulacao src/x402-server.mjs",
     "x402:agent": "node src/x402-agent.mjs",
     "build:ctd-sdk": "pnpm --filter @ctd/sdk build",
     "test": "node --test 'test/*.test.mjs'",
