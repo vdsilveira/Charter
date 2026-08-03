@@ -16,6 +16,8 @@ import { resolverFederation, stellarToml } from "@/lib/federation";
 const CONTA = "CBICQWN4C5ZM4T62E6PQRQRCFOFH5RJBSV5GPXOAZT6454377W7VLA6A";
 const DOMINIO = "charter.example";
 
+const FUNDADOR = "GCCTAKNG7GHF4SYPXGY25DCK7RLLPKMUVODCDUYZNYYVD2XWDIZXGGLQ";
+
 describe("stellar.toml", () => {
   it("publica o endereço do servidor de federation", () => {
     const toml = stellarToml({ dominio: DOMINIO, rede: "Test SDF Network ; September 2015" });
@@ -88,5 +90,58 @@ describe("resolução federation", () => {
       { dominio: DOMINIO, org: "alphafund", resolve },
     );
     expect(r.status).toBe(400);
+  });
+
+  it("resolve o fundador da organização", async () => {
+    // O selo "organização verificada" lê o **fundador**, não a conta
+    // corporativa — e é um endereço que ninguém decora. Poder escrever
+    // `founder*Matrix*charter.local` tira o passo de copiar 56 caracteres.
+    const r = await resolverFederation(
+      { q: "founder*Matrix*charter.local", type: "name" },
+      {
+        dominio: "charter.local",
+        org: "alphafund",
+        resolve: async () => null,
+        fundador: async (org) => (org === "Matrix" ? FUNDADOR : null),
+      },
+    );
+
+    expect(r.status).toBe(200);
+    expect(r.body.account_id).toBe(FUNDADOR);
+  });
+
+  it("um agente chamado founder tem precedência sobre a convenção", async () => {
+    // Dado do registro vence convenção nossa: quem batizou um agente assim
+    // espera resolver o agente.
+    const r = await resolverFederation(
+      { q: "founder*Matrix*charter.local", type: "name" },
+      {
+        dominio: "charter.local",
+        org: "alphafund",
+        resolve: async () => "CCONTA",
+        fundador: async () => FUNDADOR,
+      },
+    );
+
+    expect(r.body.account_id).toBe("CCONTA");
+  });
+
+  it("organização sem fundador conhecido continua 404", async () => {
+    const r = await resolverFederation(
+      { q: "founder*Fantasma*charter.local", type: "name" },
+      { dominio: "charter.local", org: "alphafund", resolve: async () => null, fundador: async () => null },
+    );
+
+    expect(r.status).toBe(404);
+  });
+
+  it("sem resolvedor de fundador, nada muda para quem já integrou", async () => {
+    // `fundador` é opcional: quem chamava antes continua funcionando.
+    const r = await resolverFederation(
+      { q: "founder*Matrix*charter.local", type: "name" },
+      { dominio: "charter.local", org: "alphafund", resolve: async () => null },
+    );
+
+    expect(r.status).toBe(404);
   });
 });

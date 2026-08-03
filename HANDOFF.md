@@ -30,7 +30,7 @@ este arquivo diz **onde paramos**.
 | Minhas organizações (`/orgs`) | ✅ | nomes do histórico, agentes de `org_of` |
 | Console e credencial por carteira | ✅ | `seletor-org` resolve; `alphafund` saiu dos padrões |
 | Área de administração (`/admin`) | ✅ | emite claim KYB; portão por desafio assinado |
-| Domínio e subdomínio (SEP-2) | ✅ | `trader*charter.local` resolve na rede |
+| Domínio e subdomínio (SEP-2) | ⚠️ **parcial** | resolve; devolve `C…` onde o SEP-2 espera `G…` — ver §SEP-2 |
 | Docker x402 | ✅ | compose com vendedor, agente e app |
 | Layout do app | ✅ | sistema visual próprio, claro e escuro |
 | Site público (`/`) | ✅ | landing em inglês; seção técnica carrega o pitch |
@@ -123,6 +123,36 @@ grafo seria o oposto do que compliance pede — resposta pronta para o Q&A.
 
 ---
 
+## SEP-2 — o que está provado e o que não está
+
+**Provado:** `/.well-known/stellar.toml` publica o servidor e a passphrase da
+rede; `/federation?q=…&type=name` resolve `agente*organização*domínio` para a
+conta corporativa, e `founder*organização*domínio` para quem constituiu. Agente
+removido deixa de resolver, porque a resolução passa por `credentials_of` e
+confere `active`. Um agente chamado `founder` tem precedência sobre a
+convenção — dado do registro vence convenção nossa.
+
+**Não provado, e o HANDOFF afirmava que sim:** a frase "qualquer carteira
+Stellar resolve e paga o agente sem conhecer o Charter". O SEP-2 chama o campo
+de `account_id` e as carteiras esperam um **`G…`**; devolvemos um **`C…`**,
+porque quem assina é um contrato. O SEP-2 é anterior aos contratos Soroban.
+Nenhuma carteira de terceiro foi testada contra este endpoint.
+
+Consequências práticas, em ordem:
+
+1. **No pitch, não prometer pagamento por carteira de terceiro.** Dizer que o
+   nome resolve e que a resolução reflete revogação — isso é verdade e
+   verificável ao vivo com `curl`.
+2. Para o fluxo de pagamento real, o caminho é o agente assinando via
+   `charter-signer`, que já funciona.
+3. `founder*org*domínio` devolve `G…` e **é** consumível por qualquer
+   ferramenta — é a única resposta nossa que cabe no formato original.
+
+**Onde `CHARTER_DOMAIN` importa:** sem ele, o domínio vem do host da requisição,
+o que serve para desenvolvimento e quebra atrás de proxy.
+
+---
+
 ## Área de administração (`/admin`) — emissão de claim KYB
 
 Fora da navegação de propósito. **Não listar não é segurança**: quem sabe a URL
@@ -135,6 +165,13 @@ que o gate de pagamento consulta em `4003`, e nenhum fundador foi registrado.
 Resultado: toda credencial da demo mostrava "organização não verificada",
 `alphafund` inclusive. O comportamento estava certo (fail-closed); faltava o
 claim.
+
+**Endereço federado.** O campo aceita `founder*Matrix*domínio` além do `G…`
+cru, e mostra o endereço resolvido antes de emitir. Existe porque o alvo certo é
+o **fundador**, e a conta corporativa é a que aparece em toda parte — copiar a
+errada gera uma emissão válida para o endereço errado, com o selo continuando
+negativo sem dizer por quê. O que vai para a cadeia é sempre o endereço
+resolvido, nunca o apelido.
 
 **O portão.** Endereço declarado não prova nada — o cliente manda o que quiser.
 `GET /api/admin/desafio` emite um nonce, a carteira assina com `signMessage`, e

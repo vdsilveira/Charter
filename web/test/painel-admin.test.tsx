@@ -23,9 +23,11 @@ const conectada = () => ({
 });
 
 describe("emissão de claim KYB", () => {
-  it("explica que o endereço é o do fundador", async () => {
+  it("explica que o endereço é o do fundador, não o da conta corporativa", async () => {
     render(<PainelAdmin api={conectada()} emitir={vi.fn()} />);
-    expect(await screen.findByText(/founder/i)).toBeInTheDocument();
+    // A confusão que motivou a tela: a conta corporativa aparece em todo lugar,
+    // e é o fundador que o selo lê.
+    expect(await screen.findByText(/not the corporate account/i)).toBeInTheDocument();
   });
 
   it("emite para a conta informada, com a carteira conectada", async () => {

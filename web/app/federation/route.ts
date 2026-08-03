@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { credencialDe } from "@/lib/chain";
+import { credencialDe, orgDe } from "@/lib/chain";
 import { resolverFederation } from "@/lib/federation";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,15 @@ export async function GET(req: Request) {
         try {
           const c = await credencialDe(org, label);
           return c.active ? c.account : null;
+        } catch {
+          return null;
+        }
+      },
+      // `founder*org*domínio` devolve quem constituiu — é o endereço que o
+      // claim KYB precisa, e o único dos três que ninguém decora.
+      fundador: async (org) => {
+        try {
+          return (await orgDe(org)).founder;
         } catch {
           return null;
         }

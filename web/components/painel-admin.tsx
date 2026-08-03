@@ -58,18 +58,30 @@ async function emitirPadrao(
  * `credentials_of` consulta para o selo "organização verificada" — não a conta
  * corporativa.
  */
+/** Resolve `rótulo*organização*domínio` pelo próprio servidor de federation. */
+async function resolverPadrao(nome: string): Promise<string> {
+  const r = await fetch(`/federation?q=${encodeURIComponent(nome)}&type=name`);
+  const b = await r.json();
+  if (!r.ok) throw new Error(b?.detail ?? "federated address not found");
+  return b.account_id;
+}
+
 export default function PainelAdmin({
   api,
   emitir = emitirPadrao,
+  resolver = resolverPadrao,
 }: {
   api?: FreighterApi;
   emitir?: (conta: string, endereco: string, api?: FreighterApi) => Promise<ResultadoKyb>;
+  resolver?: (nome: string) => Promise<string>;
 }) {
   const [endereco, setEndereco] = useState<string | null>(null);
   const [conta, setConta] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [feito, setFeito] = useState<ResultadoKyb | null>(null);
+  /** Endereço para o qual o nome federado apontou. */
+  const [resolvido, setResolvido] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -90,6 +102,7 @@ export default function PainelAdmin({
   async function verificar() {
     setErro(null);
     setFeito(null);
+    setResolvido(null);
 
     if (!endereco) {
       setErro("Connect the administrator wallet — the server checks the signature against it.");
@@ -98,7 +111,11 @@ export default function PainelAdmin({
 
     setOcupado(true);
     try {
-      setFeito(await emitir(conta.trim(), endereco, api));
+      // Endereço federado é resolvido antes de qualquer escrita: o que vai para
+      // a cadeia é sempre o endereço, nunca o apelido.
+      const alvo = conta.includes("*") ? await resolver(conta.trim()) : conta.trim();
+      setResolvido(conta.includes("*") ? alvo : null);
+      setFeito(await emitir(alvo, endereco, api));
     } catch (e) {
       setErro(String((e as Error)?.message ?? e));
     } finally {
@@ -127,16 +144,20 @@ export default function PainelAdmin({
           <CardTitle className="text-base">Account to verify</CardTitle>
           <CardDescription>
             For the &quot;organization verified&quot; seal, this is the <strong>founder</strong>
-            &apos;s wallet — that is what the credential reads, not the corporate account.
+            &apos;s wallet — that is what the credential reads, not the corporate account. You can
+            write <code className="font-mono text-xs">founder*YourOrg*your.domain</code> instead of
+            pasting 56 characters.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="block text-sm">
-            <span className="mb-1 block text-slate">Stellar address</span>
+            <span className="mb-1 block text-slate">
+              Stellar address <span className="text-slate/70">or federated name</span>
+            </span>
             <Input
               value={conta}
               onChange={(e) => setConta(e.target.value)}
-              placeholder="G…"
+              placeholder="G… or founder*YourOrg*your.domain"
               className="font-mono text-xs"
             />
           </label>
@@ -148,6 +169,12 @@ export default function PainelAdmin({
           {erro && (
             <p role="alert" className="rounded-md bg-denysoft px-3 py-2 text-sm text-deny">
               {erro}
+            </p>
+          )}
+
+          {resolvido && (
+            <p className="break-all font-mono text-xs text-slate">
+              resolved to {resolvido}
             </p>
           )}
 
