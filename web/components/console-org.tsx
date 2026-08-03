@@ -14,11 +14,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
  */
 export default function ConsoleDaOrg({ org: ORG }: { org: string }) {
   const carregarFeed = useCallback(async (): Promise<Decisao[]> => {
-    const r = await fetch("/api/feed");
+    const r = await fetch(`/api/feed?org=${encodeURIComponent(ORG)}`);
     const b = await r.json();
     if (!r.ok) throw new Error(b?.error ?? "could not read the feed");
     return b.decisions;
-  }, []);
+  }, [ORG]);
 
   const carregarRanking = useCallback(async (): Promise<LinhaAgente[]> => {
     const info = await fetch(`/api/org/${ORG}`);

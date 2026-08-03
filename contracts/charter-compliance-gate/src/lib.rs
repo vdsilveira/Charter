@@ -10,15 +10,28 @@
 //!    (consulta ao identity registry da suíte RWA)
 //!
 //! Também é o ponto de instrumentação: o `enforce` aprovado escreve
-//! `AgentStats` e emite `PolicyDecision`. O caminho de recusa **não** grava
-//! nada — `enforce` reprova via panic e a transação inteira reverte, levando
-//! junto evento e estado. Por isso `ops_blocked` não existe aqui: a tentativa
-//! recusada vive na rede como transação falhada, reconstruída pelo console.
+//! `AgentStats`. O caminho de recusa **não** grava nada — `enforce` reprova via
+//! panic e a transação inteira reverte, levando junto o estado. Por isso
+//! `ops_blocked` não existe aqui: a tentativa recusada vive na rede como
+//! transação falhada.
+//!
+//! ## Por que não há evento aqui
+//!
+//! Havia um `PolicyDecision`, e ele saiu. O facilitador x402 da OpenZeppelin
+//! percorre **todos** os eventos de contrato da simulação e recusa qualquer um
+//! cujo primeiro tópico não seja o símbolo `transfer` — não ignora, recusa. Um
+//! evento próprio no `enforce` tornava toda operação de uma organização Charter
+//! irrecebível pelo padrão.
+//!
+//! Instrumentação nossa não vale interoperabilidade. A garantia nunca esteve no
+//! evento: quem recusa é o `panic`, que reverte a transação. O console
+//! reconstrói as operações dos eventos `transfer` do próprio ativo, e a
+//! atribuição por agente vive no `AgentStats`.
 
 use soroban_sdk::{
     auth::{Context, ContractContext},
-    contract, contractclient, contracterror, contractevent, contractimpl, contracttype,
-    panic_with_error, symbol_short, Address, Env, Symbol, TryFromVal, Vec,
+    contract, contractclient, contracterror, contractimpl, contracttype,
+    panic_with_error, symbol_short, Address, Env, TryFromVal, Vec,
 };
 use stellar_accounts::{
     policies::Policy,
@@ -60,16 +73,6 @@ pub enum GateError {
     NoSigners = 4005,
     /// A operação levaria o agente acima do teto acumulado da procuração.
     CapExceeded = 4006,
-}
-
-#[contractevent]
-pub struct PolicyDecision {
-    #[topic]
-    pub smart_account: Address,
-    pub agent_label: Symbol,
-    pub fn_name: Symbol,
-    pub amount: i128,
-    pub counterparty_verified: bool,
 }
 
 #[contracttype]
@@ -144,15 +147,6 @@ impl Policy for ComplianceGate {
             stats.volume_attested += amount;
         }
         save_stats(e, &smart_account, context_rule.id, &stats);
-
-        PolicyDecision {
-            smart_account,
-            agent_label: params.agent_label,
-            fn_name: cc.fn_name,
-            amount,
-            counterparty_verified: verified,
-        }
-        .publish(e);
     }
 
     fn install(

@@ -7,8 +7,8 @@ import { encurtar } from "@/lib/utils";
 export interface Decisao {
   tx: string;
   ledger: number;
-  agent: string;
-  fn: string;
+  /** Para quem o valor foi. */
+  para: string;
   amount: string;
   counterpartyVerified: boolean;
 }
@@ -16,9 +16,14 @@ export interface Decisao {
 /**
  * Feed de decisões de política, reconstruído da cadeia.
  *
- * Só o caminho aprovado aparece aqui: a recusa reverte a transação e leva o
- * evento junto. Tentativa bloqueada se lê das transações falhadas — por isso a
- * simulação prévia existe, e por isso este feed não mente ao ficar vazio.
+ * Só o caminho aprovado aparece aqui: a recusa reverte a transação inteira.
+ * Tentativa bloqueada se lê das transações falhadas — por isso a simulação
+ * prévia existe, e por isso este feed não mente ao ficar vazio.
+ *
+ * A linha não diz **qual agente** originou a operação. Vinha de um evento
+ * próprio do gate, que saiu para o Charter poder operar com o x402 — o
+ * facilitador recusa qualquer evento de contrato que não seja `transfer`. A
+ * atribuição por agente segue no ranking, que lê o `AgentStats`.
  */
 export default function Feed({
   carregar,
@@ -71,8 +76,7 @@ export default function Feed({
     <table className="w-full text-sm">
       <thead className="text-left text-slate">
         <tr>
-          <th className="py-2 font-medium">agent</th>
-          <th className="py-2 font-medium">function</th>
+          <th className="py-2 font-medium">recipient</th>
           <th className="py-2 font-medium">amount</th>
           <th className="py-2 font-medium">counterparty</th>
           <th className="py-2 font-medium">tx</th>
@@ -81,8 +85,7 @@ export default function Feed({
       <tbody>
         {linhas.map((d) => (
           <tr key={d.tx} className="border-t border-hairline">
-            <td className="py-2">{d.agent}</td>
-            <td className="py-2 font-mono text-xs">{d.fn}</td>
+            <td className="py-2 font-mono text-xs">{encurtar(d.para, 6)}</td>
             <td className="py-2">{d.amount}</td>
             <td className="py-2">
               {d.counterpartyVerified ? (

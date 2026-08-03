@@ -209,7 +209,7 @@ function operacaoDePagamento({ ativo, de, para, valor, auth }) {
  * adivinha, assina as que foram pedidas. A fonte é uma conta sintética, porque
  * ele não precisa existir na rede para isso.
  */
-async function assinarComAgente({ agente, conta, ruleId, ativo, para, valor }) {
+async function assinarComAgente({ agente, conta, ruleId, ativo, para, valor, maxTimeoutSeconds }) {
   const sonda = new TransactionBuilder(new Account(Keypair.random().publicKey(), "0"), {
     fee: "3000000",
     networkPassphrase: PASS,
@@ -234,9 +234,12 @@ async function assinarComAgente({ agente, conta, ruleId, ativo, para, valor }) {
 
   const ultimo = (await server.getLatestLedger()).sequence;
   const entradas = [];
+  // A validade precisa caber em `maxTimeoutSeconds`: o facilitador recusa
+  // autorização com prazo longo demais (`auth_expiration_too_far`).
+  const janela = Math.ceil((maxTimeoutSeconds ?? 300) / 5);
   for (const e of prevista.result?.auth ?? []) {
     const { signedAuthEntry } = await signer.signAuthEntry(e.toXDR("base64"), {
-      validUntilLedgerSeq: ultimo + 300,
+      validUntilLedgerSeq: ultimo + janela,
     });
     entradas.push(signedAuthEntry);
   }
@@ -252,8 +255,10 @@ async function assinarComAgente({ agente, conta, ruleId, ativo, para, valor }) {
  * consome a autorização.
  */
 async function transacaoParaX402({ conta, ativo, para, valor, entradas }) {
+  // Taxa base mínima: quem paga é o facilitador, e ele recusa acima do teto
+  // dele (`fee_exceeds_maximum`). O preparo soma o custo de recurso por cima.
   const tx = new TransactionBuilder(new Account(Keypair.random().publicKey(), "0"), {
-    fee: "5000000",
+    fee: "100",
     networkPassphrase: PASS,
   })
     .addOperation(
@@ -348,12 +353,9 @@ async function patrocinar({ conta, ativo, para, valor, entradas }) {
 
 /** Reapresenta o recurso com a prova de pagamento, no formato do x402. */
 async function liquidar({ transacao, exige }) {
-  const carga = {
-    x402Version: 2,
-    scheme: exige?.scheme ?? "exact",
-    network: exige?.network ?? "stellar:testnet",
-    payload: { transaction: transacao },
-  };
+  // `accepted` carrega a exigência escolhida — sem ele o facilitador responde
+  // `invalid_exact_payload_malformed`.
+  const carga = { x402Version: 2, accepted: exige, payload: { transaction: transacao } };
 
   const r = await fetch(RECURSO, {
     headers: {
@@ -475,7 +477,15 @@ async function rodada() {
 
   let entradas;
   try {
-    entradas = await assinarComAgente({ agente, conta: info.account, ruleId, ativo, para, valor });
+    entradas = await assinarComAgente({
+      agente,
+      conta: info.account,
+      ruleId,
+      ativo,
+      para,
+      valor,
+      maxTimeoutSeconds: exige.maxTimeoutSeconds,
+    });
   } catch (e) {
     console.log(erro(`     a rede recusaria antes da assinatura: ${e.message}`));
     return;

@@ -105,8 +105,8 @@ export async function credencialDe(org: string, label: string): Promise<Credenci
 export interface Decisao {
   tx: string;
   ledger: number;
-  agent: string;
-  fn: string;
+  /** Para quem o valor foi. */
+  para: string;
   amount: string;
   counterpartyVerified: boolean;
 }
@@ -118,25 +118,68 @@ export interface Decisao {
  * ela se lê das transações falhadas. É a mesma razão pela qual a UI simula
  * antes de enviar.
  */
-export async function decisoes(): Promise<Decisao[]> {
+/**
+ * Operações liquidadas pela conta corporativa, lidas dos eventos do ativo.
+ *
+ * Antes isto vinha de um evento próprio do `ComplianceGate`. Ele saiu porque o
+ * facilitador do x402 **recusa qualquer evento de contrato que não seja um
+ * `transfer`** — não ignora, recusa —, o que tornava toda operação de uma
+ * organização Charter irreceptível para o padrão. Instrumentação nossa não pode
+ * custar interoperabilidade: a garantia sempre esteve no `panic` do gate, que
+ * reverte a transação, não no evento.
+ *
+ * O que se perde é a atribuição por agente em cada linha. Ela não some do
+ * produto — vive no `AgentStats`, que alimenta o ranking.
+ */
+export async function decisoes(contaOrg?: string): Promise<Decisao[]> {
+  const conta = contaOrg ?? process.env.CHARTER_ORG_ACCOUNT ?? "";
+  const alvo = process.env.CHARTER_TARGET ?? "";
+  if (!conta || !alvo) return [];
+
   const ultimo = (await server.getLatestLedger()).sequence;
   const { events } = await server.getEvents({
     startLedger: Math.max(ultimo - 100_000, 1),
-    filters: [{ type: "contract", contractIds: [GATE] }],
+    filters: [
+      {
+        type: "contract",
+        contractIds: [alvo],
+        // `transfer` com a conta corporativa na origem: é o que a organização
+        // moveu, e nada do que apenas passou pelo mesmo token.
+        topics: [[sym("transfer").toXDR("base64"), new Address(conta).toScVal().toXDR("base64"), "*"]],
+      },
+    ],
     limit: 200,
   });
 
-  return events.map((e) => {
-    const d = scValToNative(e.value) as Record<string, unknown>;
-    return {
-      tx: e.txHash,
-      ledger: e.ledger,
-      agent: String(d?.agent_label ?? ""),
-      fn: String(d?.fn_name ?? ""),
-      amount: String(d?.amount ?? 0n),
-      counterpartyVerified: Boolean(d?.counterparty_verified),
-    };
-  });
+  const brutos = events.map((e) => ({
+    tx: e.txHash,
+    ledger: e.ledger,
+    para: String(scValToNative(e.topic[2])),
+    amount: String(scValToNative(e.value) ?? 0n),
+  }));
+
+  // Uma verificação por contraparte distinta, não uma por linha: é a coluna que
+  // separa volume que conta de volume que não conta, e não vale gastar dezenas
+  // de leituras para repetir a mesma resposta.
+  const distintas = [...new Set(brutos.map((b) => b.para))];
+  const verificadas = new Map<string, boolean>();
+  for (const conta of distintas) {
+    verificadas.set(conta, await contaVerificada(conta));
+  }
+
+  return brutos.map((b) => ({ ...b, counterpartyVerified: verificadas.get(b.para) ?? false }));
+}
+
+/** A contraparte tem claim válido? Fail-closed, como o gate. */
+async function contaVerificada(conta: string): Promise<boolean> {
+  try {
+    await simular(process.env.CHARTER_IDENTITY_VERIFIER ?? "", "verify_identity", [
+      new Address(conta).toScVal(),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function ranking(org: string, labels: string[]) {

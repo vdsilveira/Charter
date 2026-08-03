@@ -304,15 +304,28 @@ fn unverified_counterparty_below_threshold_still_passes() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn approved_path_emits_policy_decision() {
+fn o_caminho_aprovado_nao_emite_evento() {
+    // Invariante de interoperabilidade, não estilo. O facilitador x402 da
+    // OpenZeppelin percorre todos os eventos de contrato da simulação e recusa
+    // qualquer um cujo primeiro tópico não seja o símbolo `transfer` — não
+    // ignora, recusa. Um evento nosso aqui torna toda operação de uma
+    // organização Charter irrecebível pelo padrão.
+    //
+    // O que registra a operação é o `AgentStats`, logo abaixo, e o `transfer`
+    // que o próprio ativo emite.
     let f = setup();
     let to = Address::generate(&f.e);
     let r = install(&f, 500, &[symbol_short!("transfer")]);
 
-    let before = f.e.events().all().events().len();
+    let antes = f.e.events().all().events().len();
     enforce(&f, &r, transfer_ctx(&f.e, &f.token, &to, 100), signers(&f.e));
 
-    assert!(f.e.events().all().events().len() > before, "PolicyDecision não foi emitido");
+    assert_eq!(
+        f.e.events().all().events().len(),
+        antes,
+        "o gate emitiu evento — isso faz o facilitador x402 recusar o pagamento",
+    );
+    assert_eq!(stats(&f, &r).ops_ok, 1, "a operação precisa continuar registrada");
 }
 
 #[test]

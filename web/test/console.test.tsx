@@ -14,8 +14,8 @@ import Leaderboard from "@/components/leaderboard";
 import PagamentoForm from "@/components/pagamento-form";
 
 const decisoes = [
-  { tx: "aa11", ledger: 10, agent: "trader", fn: "transfer", amount: "100", counterpartyVerified: false },
-  { tx: "bb22", ledger: 11, agent: "trader", fn: "transfer", amount: "900", counterpartyVerified: true },
+  { tx: "aa11", ledger: 10, para: "GBG6UX7LDUU5ZAVRASDVB3EP7BXKM7ZXVHZQWPPPQXTVVUOSNRCWCGQO", amount: "100", counterpartyVerified: false },
+  { tx: "bb22", ledger: 11, para: "GBG6UX7LDUU5ZAVRASDVB3EP7BXKM7ZXVHZQWPPPQXTVVUOSNRCWCGQO", amount: "900", counterpartyVerified: true },
 ];
 
 /** Endereços válidos: a tela recusa formato inválido antes de simular. */
@@ -28,7 +28,10 @@ describe("feed de decisões", () => {
     render(<Feed carregar={async () => decisoes} />);
 
     expect(await screen.findByText(/900/)).toBeInTheDocument();
-    expect(screen.getAllByText(/trader/i).length).toBeGreaterThan(0);
+    // A linha não nomeia mais o agente: o evento próprio do gate saiu para o
+    // Charter poder operar com o x402. A atribuição por agente segue no
+    // ranking, que lê o AgentStats.
+    expect(screen.getAllByText(/GBG6UX/).length).toBeGreaterThan(0);
   });
 
   it("distingue contraparte verificada de não verificada", async () => {

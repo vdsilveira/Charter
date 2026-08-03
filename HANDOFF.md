@@ -190,52 +190,51 @@ recusar.
 
 ---
 
-## x402 — o loop destravou, e parou numa incompatibilidade de contrato
+## x402 — fechado ponta a ponta
 
-Com a `OZ_API_KEY` o facilitador responde. **Dois enganos de documentação
-custaram tempo:** o caminho é `/x402/testnet/supported`, não `/x402/supported`
-(este devolve 401 sempre), e o preço em ativo próprio vai como objeto —
-`price: { amount, asset }` — porque `price: "$0.001"` faz a biblioteca converter
-para USDC e ignorar o `asset`.
+    recurso: 200
+    {"pair":"XLM/USD","price":0.4127,...}
+    liquidação: {"success":true,
+                 "payer":"CDSQS7KJ…",
+                 "transaction":"c3d0ec77…"}
 
-Com isso o vendedor cobra **em XLM** de verdade:
+O agente comprou o recurso com **XLM**, pagando pela conta corporativa, e o
+facilitador da OpenZeppelin liquidou **patrocinando a taxa**. `isValid: true`,
+com o `payer` sendo a smart account.
 
-    PAYMENT-REQUIRED (base64) → accepts[0] = {
-      scheme: "exact", network: "stellar:testnet",
-      amount: "1000000", asset: <SAC nativo>,
-      payTo: <supplier>, extra: { areFeesSponsored: true }
-    }
+**O que precisou mudar, e por quê.** O `ComplianceGate` emitia `PolicyDecision`.
+O validador do facilitador percorre **todos** os eventos de contrato da simulação
+e recusa qualquer um cujo primeiro tópico não seja o símbolo `transfer` — não
+ignora, recusa. Instrumentação nossa custava interoperabilidade, e a garantia
+nunca esteve no evento: quem recusa é o `panic`, que reverte a transação. O
+evento saiu, e um teste guarda a invariante — `o_caminho_aprovado_nao_emite_evento`.
 
-O payload de pagamento é a **transação inteira** (não um hash) e vai em
-`PAYMENT-SIGNATURE`, no formato `{ x402Version: 2, accepted: <a exigência>,
-payload: { transaction } }`. O facilitador submete e patrocina a taxa — ou seja,
-ele e o nosso patrocinador são **rotas alternativas**: quem liquidar primeiro
-consome a autorização.
+O feed do console foi refeito **antes** do redeploy, lendo os `transfer` do
+próprio ativo filtrados pela conta corporativa. Perdeu a atribuição por agente
+em cada linha; ela vive no `AgentStats`, que alimenta o ranking.
 
-**Onde parou.** Levando o payload ao `/verify`, os erros foram caindo um a um até
-sobrar este:
+**O registro não foi redeployado.** `create_org` recebe o gate por organização,
+então só o gate mudou de endereço. Organizações antigas seguem no gate anterior
+— e continuam emitindo evento, logo continuam incompatíveis com o x402. Para
+usar o padrão, **recriar a organização**.
 
-| Erro | Causa |
+**Armadilhas que custaram tempo, em ordem:**
+
+| Sintoma | Causa |
 |---|---|
-| `payload_malformed` | faltava o campo `accepted` |
+| 401 em `/x402/supported` | o caminho é `/x402/testnet/supported` |
+| tudo vira USDC | `price: "$0,001"` converte; ativo próprio vai como `price: { amount, asset }` |
+| 401 com a chave certa no arquivo | valor entre aspas: `source` do bash tira, leitor JS não |
+| 402 com corpo `{}` | as exigências vêm no cabeçalho `PAYMENT-REQUIRED`, em base64 |
+| `payload_malformed` | falta o campo `accepted` no payload |
 | `auth_expiration_too_far` | validade acima de `maxTimeoutSeconds / 5` ledgers |
 | `fee_exceeds_maximum` | taxa base alta; usar o mínimo e deixar o preparo somar |
-| **`event_not_transfer`** | **o nosso `PolicyDecision`** |
+| `event_not_transfer` | o `PolicyDecision` do gate |
 
-O validador do facilitador percorre **todos** os eventos de contrato e recusa
-qualquer um cujo primeiro tópico não seja o símbolo `transfer` — não ignora,
-recusa. O `PolicyDecision` que o `ComplianceGate` emite tem 2 tópicos e nome
-próprio, então toda operação do Charter é recusada por ele.
-
-**A decisão é de produto, e é do fundador:** ou o gate deixa de emitir o evento —
-e o feed de decisões do console perde a fonte, tendo de ser reconstruído de
-eventos `transfer` mais as `AgentStats` — ou o x402 pela OZ fica fora, e o
-patrocínio próprio (que funciona) é o caminho. Exige redeploy do gate de
-qualquer forma.
-
-O `_verify` já reconhece o pagador como a conta corporativa
-(`payer: CBUR3T22…`), o que é a parte difícil: a smart account é aceita como
-pagadora do x402.
+**Uma consequência de desenho:** o facilitador e o patrocínio próprio são rotas
+**alternativas**. A auth entry tem nonce de uso único — quem liquidar primeiro a
+consome, e a outra falha na simulação. Não é escolha nossa; é o antirreplay do
+Soroban.
 
 ---
 
