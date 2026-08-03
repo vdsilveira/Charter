@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { StrKey } from "@stellar/stellar-sdk";
-import { conferirResposta } from "@/lib/admin";
+import { conferirResposta, diagnosticar } from "@/lib/admin";
 import { emitirKyb, estaVerificada } from "@/lib/kyb";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,13 @@ export async function POST(req: Request) {
       // ed25519 crua; outro número aponta para envelope ou codificação
       // inesperada.
       const bytes = Buffer.from(String(assinatura ?? ""), "base64").length;
-      return NextResponse.json({ error: `${recusa} (signature: ${bytes} bytes)` }, { status: 403 });
+      // Fora de produção, o servidor tem a chave e pode dizer **o que** a
+      // carteira assinou, em vez de deixar a próxima tentativa no chute.
+      const pista = diagnosticar(nonce, assinatura);
+      return NextResponse.json(
+        { error: `${recusa} (signature: ${bytes} bytes${pista ? `; assinou: ${pista}` : ""})` },
+        { status: 403 },
+      );
     }
 
     if (!conta || !StrKey.isValidEd25519PublicKey(String(conta).trim())) {

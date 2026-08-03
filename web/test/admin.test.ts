@@ -236,4 +236,26 @@ describe("portão de administração", () => {
       }),
     ).toBeNull();
   });
+
+  it("o diagnóstico nomeia o que a carteira assinou", async () => {
+    // Existe porque quatro tentativas seguidas falharam sem dizer a causa. Com
+    // a chave no servidor, dá para responder em vez de adivinhar.
+    const nonce = mod.criarDesafio();
+    const b64 = Buffer.from(nonce, "utf8").toString("base64");
+
+    expect(
+      mod.diagnosticar(nonce, admin.sign(Buffer.from(b64, "utf8")).toString("base64")),
+    ).toMatch(/base64/i);
+    expect(mod.diagnosticar(nonce, admin.sign(Buffer.from(nonce, "utf8")).toString("base64"))).toMatch(
+      /bytes do nonce/i,
+    );
+  });
+
+  it("diagnóstico diz quando nenhuma candidata bate", () => {
+    const nonce = mod.criarDesafio();
+    // Assinatura sobre algo que não deriva do nonce: é o sinal de que a lista
+    // de candidatas está incompleta, e não de que a carteira está errada.
+    const outra = admin.sign(Buffer.from("nada a ver", "utf8")).toString("base64");
+    expect(mod.diagnosticar(nonce, outra)).toMatch(/nenhuma das/i);
+  });
 });

@@ -20,6 +20,59 @@ import { env } from "./env-servidor";
 const VALIDADE_MS = 5 * 60_000;
 
 /**
+ * O que a carteira pode ter assinado, com nome.
+ *
+ * A extensão decide o que fazer com o blob, e a biblioteca só repassa — não há
+ * como saber de fora. Em vez de apostar numa forma, listamos as plausíveis: o
+ * portão aceita qualquer uma, e `diagnosticar` usa a mesma lista para dizer
+ * **qual** foi, quando nenhuma bate.
+ *
+ * Aceitar várias não afrouxa nada: toda candidata é derivada deste nonce
+ * específico, e produzir a assinatura de qualquer uma exige a chave.
+ */
+function candidatas(nonce: string): [string, Buffer][] {
+  const cru = Buffer.from(nonce, "utf8");
+  const b64 = Buffer.from(cru.toString("base64"), "utf8");
+  const prefixado = Buffer.from(`Stellar Signed Message:\n${nonce}`, "utf8");
+
+  return [
+    ["bytes do nonce", cru],
+    ["nonce em base64, como texto", b64],
+    ["sha256 do nonce", hash(cru)],
+    ["nonce decodificado como base64", Buffer.from(nonce, "base64")],
+    ["sha256 do nonce em base64", hash(b64)],
+    ["prefixo 'Stellar Signed Message'", prefixado],
+    ["sha256 do prefixado", hash(prefixado)],
+  ];
+}
+
+/**
+ * Quando nada bate, descobre o que a carteira assinou de fato.
+ *
+ * Só é possível porque a chave que assina está no servidor: assinamos cada
+ * candidata e comparamos. Sem isto, cada tentativa é um chute e o ciclo se
+ * repete — foi o que aconteceu quatro vezes.
+ *
+ * Fica fora de produção: expõe detalhe interno e só serve para depurar
+ * integração com carteira.
+ */
+export function diagnosticar(nonce: string, assinatura: string): string | null {
+  if (process.env.NODE_ENV === "production") return null;
+
+  try {
+    const kp = Keypair.fromSecret(env("ADMIN_SECRET"));
+    const recebida = Buffer.from(assinatura, "base64");
+
+    for (const [nome, bytes] of candidatas(nonce)) {
+      if (kp.sign(bytes).equals(recebida)) return nome;
+    }
+    return `nenhuma das ${candidatas(nonce).length} candidatas`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Desafios emitidos e ainda não usados.
  *
  * Vive em `globalThis` porque o Next empacota **cada rota separadamente**: um
@@ -96,18 +149,7 @@ export function conferirResposta(r: Resposta, agora = Date.now()): string | null
     // Isso não afrouxa o portão: toda candidata continua sendo uma assinatura
     // da chave do administrador sobre dado derivado deste nonce. Quem não tem
     // a chave não produz nenhuma delas.
-    const cru = Buffer.from(r.nonce, "utf8");
-    const emBase64 = Buffer.from(cru.toString("base64"), "utf8");
-    const cargas = [
-      // O cliente manda o desafio em base64 para a carteira. Se a extensão o
-      // decodifica, assina exatamente `cru`; se assina o texto como está,
-      // assina `emBase64`. As duas leituras estão cobertas.
-      cru,
-      emBase64,
-      hash(cru),
-      // Tolerância para o caso de a carteira decodificar o que já era texto.
-      Buffer.from(r.nonce, "base64"),
-    ];
+    const cargas = candidatas(r.nonce).map(([, bytes]) => bytes);
     const assinaturas = [
       Buffer.from(r.assinatura, "base64"),
       // Hexadecimal só é tentado quando o texto de fato é hexadecimal; do
