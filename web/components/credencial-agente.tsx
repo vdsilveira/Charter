@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { emXlm } from "@/lib/valores";
+import PizzaConduta from "@/components/pizza-conduta";
 
 export interface Credencial {
   org: string;
@@ -38,7 +39,8 @@ export default function CredencialAgente({ credencial: c }: { credencial: Creden
         {c.active ? <Badge variant="ok">active</Badge> : <Badge variant="alert">revoked</Badge>}
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1 space-y-4">
         <section>
           <h4 className="mb-1 text-xs uppercase tracking-wide text-slate">power of attorney</h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -83,7 +85,14 @@ export default function CredencialAgente({ credencial: c }: { credencial: Creden
           )}
         </p>
 
-        <p className="break-all font-mono text-xs text-slate/70">signs as {c.account}</p>
+          <p className="break-all font-mono text-xs text-slate/70">signs as {c.account}</p>
+        </div>
+
+        {/* A rosca fica junto do agente a que se refere. Um gráfico fora do
+            card obrigaria a cruzar nome com barra, e a leitura se perde. */}
+        <div className="shrink-0 sm:pl-2">
+          <PizzaConduta total={c.conduct.volumeTotal} atestado={c.conduct.volumeAttested} />
+        </div>
       </CardContent>
     </Card>
   );

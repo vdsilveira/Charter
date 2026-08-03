@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import CredencialAgente, { type Credencial } from "@/components/credencial-agente";
-import Conduta from "@/components/conduta";
 
 /**
  * As credenciais dos agentes de uma organização, como a contraparte as lê.
@@ -65,13 +64,6 @@ export default function CredenciaisDaOrg({ org }: { org: string }) {
         <p className="rounded-lg border border-hairline bg-surface px-5 py-8 text-center text-sm text-slate">
           No agents in force — an organization without a power of attorney cannot move value.
         </p>
-      )}
-
-      {/* A conduta vem antes das credenciais: quem abre esta página quer, em
-          primeiro lugar, saber se dá para negociar — e é a proporção atestada
-          que responde isso. */}
-      {credenciais && credenciais.length > 0 && (
-        <Conduta agentes={credenciais.map((c) => ({ label: c.label, conduct: c.conduct }))} />
       )}
 
       {credenciais?.map((c) => <CredencialAgente key={c.label} credencial={c} />)}
