@@ -124,6 +124,29 @@ grafo seria o oposto do que compliance pede — resposta pronta para o Q&A.
 
 ---
 
+## Tesouro da organização — o que confunde
+
+São **duas** coisas diferentes, e trocá-las custa tempo de depuração:
+
+| | Quem paga | Onde vive |
+|---|---|---|
+| **taxa** da transação | o patrocinador (fundador) | conta `G…` dele |
+| **valor** que o agente move | o tesouro da organização | conta corporativa `C…` |
+
+Uma organização recém-constituída tem saldo **zero**. A procuração do agente
+está perfeitamente válida e a transferência falha assim mesmo, com erro do token
+que não menciona saldo. O componente `Tesouro` (em `/org/[org]`) mostra o saldo
+e deixa o fundador aportar; o texto da tela diz explicitamente que aquilo não é
+a taxa, porque essa foi a confusão real.
+
+A conversão XLM↔stroops fica em `lib/valores.ts` e é feita **em texto**:
+`Number("8.1") * 1e7` devolve `81000000.00000001`, e arredondar o resto é como
+se perde ou se cria dinheiro sem ninguém notar. Valor com mais de 7 casas é
+recusado em vez de truncado — mostrar um número e enviar outro é pior que
+recusar.
+
+---
+
 ## Patrocínio de taxa — o agente assina, o fundador paga
 
 O agente carrega a chave que **autoriza** e nada além disso: sem XLM, sem conta

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import PainelAgentes, { type AgenteResumo, type NovoAgente } from "@/components/painel-agentes";
+import Tesouro from "@/components/tesouro";
 import { assinarEEnviar, freighter, type FreighterApi } from "@/lib/carteira";
 
 /**
@@ -122,6 +123,10 @@ export default function PainelOrg({ org, api }: { org: string; api?: FreighterAp
           </Link>
         </p>
       </header>
+
+      {/* Antes dos agentes: sem saldo, a procuração está certa e a
+          transferência falha assim mesmo. */}
+      <Tesouro org={org} api={api} />
 
       <PainelAgentes org={org} carregar={carregar} adicionar={adicionar} remover={remover} />
     </main>

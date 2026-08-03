@@ -174,3 +174,17 @@ export async function orgDe(org: string): Promise<InfoOrg> {
     agents: (info.agents ?? []).map(String),
   };
 }
+
+/**
+ * Saldo da conta corporativa no ativo que os agentes movem.
+ *
+ * É o que limita a operação do agente — não a taxa, que o patrocinador paga.
+ * Confundir os dois leva a financiar a conta errada e continuar sem entender
+ * por que a transferência falha.
+ */
+export async function saldoDaOrg(org: string): Promise<string> {
+  const { account } = await orgDe(org);
+  const alvo = process.env.CHARTER_TARGET ?? "";
+  const saldo = await simular(alvo, "balance", [new Address(account).toScVal()]);
+  return String(saldo ?? "0");
+}

@@ -13,6 +13,7 @@ import {
 } from "@stellar/stellar-sdk";
 import { createCharterSigner } from "./charter-signer";
 import { env } from "./env-servidor";
+import { orgDe } from "./chain";
 
 const RPC = process.env.STELLAR_RPC ?? "https://soroban-testnet.stellar.org";
 const PASS = Networks.TESTNET;
@@ -343,6 +344,48 @@ export async function montarRemocaoAgente(org: string, label: string, fundador: 
       contract: env("CHARTER_REGISTRY"),
       function: "remove_agent",
       args: [sym(org), sym(label)],
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Aporte ao tesouro
+// ---------------------------------------------------------------------------
+
+/**
+ * Monta a transferência do fundador para a conta corporativa.
+ *
+ * O que falta a uma organização recém-constituída **não é taxa** — essa o
+ * patrocinador paga — e sim valor para os agentes moverem. Sem saldo aqui, a
+ * procuração está correta e a transferência falha assim mesmo, com um erro do
+ * token que não menciona saldo nenhum.
+ *
+ * Qualquer carteira pode aportar; não há `require_auth` do fundador em jogo,
+ * só o do dono do dinheiro. A tela oferece isso ao fundador porque é dele que
+ * se espera o aporte, não porque a rede exija.
+ */
+export async function montarAporte({
+  org,
+  de,
+  valor,
+}: {
+  org: string;
+  de: string;
+  /** Em stroops, inteiro. */
+  valor: string;
+}) {
+  if (!/^\d+$/.test(valor) || BigInt(valor) <= 0n) {
+    throw new Error("Amount must be a positive integer in stroops.");
+  }
+
+  const { account } = await orgDe(org);
+
+  return prepararParaAssinatura(
+    de,
+    Operation.invokeContractFunction({
+      contract: env("CHARTER_TARGET"),
+      function: "transfer",
+      args: [addr(de), addr(account), i128(valor)],
     }),
   );
 }
