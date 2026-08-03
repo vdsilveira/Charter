@@ -102,6 +102,15 @@ export async function credencialDe(org: string, label: string): Promise<Credenci
   };
 }
 
+/**
+ * Quantos ledgers para trás o feed olha — cerca de sete horas.
+ *
+ * Não é escolha de gosto: a RPC varre um trecho limitado por consulta, e pedir
+ * uma janela grande devolve os eventos **mais antigos** do trecho varrido, ou
+ * nada. Curta e recente é o que funciona.
+ */
+const LEDGERS_DO_FEED = 5_000;
+
 export interface Decisao {
   tx: string;
   ledger: number;
@@ -138,14 +147,26 @@ export async function decisoes(contaOrg?: string): Promise<Decisao[]> {
 
   const ultimo = (await server.getLatestLedger()).sequence;
   const { events } = await server.getEvents({
-    startLedger: Math.max(ultimo - 100_000, 1),
+    // Janela curta de propósito. A RPC varre só um trecho de ledgers por
+    // consulta: começar longe faz ela parar antes de alcançar os recentes e
+    // devolver **vazio**, sem erro nenhum. Uma janela de 100 mil ledgers não
+    // mostrava operações de minutos atrás.
+    startLedger: Math.max(ultimo - LEDGERS_DO_FEED, 1),
     filters: [
       {
         type: "contract",
         contractIds: [alvo],
-        // `transfer` com a conta corporativa na origem: é o que a organização
-        // moveu, e nada do que apenas passou pelo mesmo token.
-        topics: [[sym("transfer").toXDR("base64"), new Address(conta).toScVal().toXDR("base64"), "*"]],
+        // Quatro segmentos porque o SAC emite `transfer` com quatro tópicos —
+        // o quarto é o nome do ativo. Um filtro de três nunca casa, e o
+        // sintoma é o mesmo: lista vazia sem erro.
+        topics: [
+          [
+            sym("transfer").toXDR("base64"),
+            new Address(conta).toScVal().toXDR("base64"),
+            "*",
+            "*",
+          ],
+        ],
       },
     ],
     limit: 200,

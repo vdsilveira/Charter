@@ -255,6 +255,24 @@ Soroban.
 
 ---
 
+## `getEvents` — duas armadilhas que devolvem lista vazia sem erro
+
+O feed apareceu vazio enquanto o ranking mostrava duas operações. As causas
+foram duas, e nenhuma dá erro:
+
+1. **O SAC emite `transfer` com quatro tópicos** — o quarto é o nome do ativo.
+   Um filtro de três segmentos nunca casa.
+2. **A RPC varre um trecho limitado de ledgers por consulta.** Começar longe faz
+   ela parar antes de alcançar os recentes: uma janela de 100 mil ledgers não
+   mostrava operações de minutos atrás, enquanto 5 mil mostrava. **Janela maior
+   devolve menos.**
+
+`getHealth` informa `oldestLedger` e `ledgerRetentionWindow`, mas eles descrevem
+retenção de **ledgers**, não o alcance de uma consulta de eventos — seguir por
+ali leva à conclusão errada. O feed usa 5 000 ledgers, cerca de sete horas.
+
+---
+
 ## O console foi removido — o que foi de cada peça
 
 Tinha três cartões, e cada um teve destino diferente:
