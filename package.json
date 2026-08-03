@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Charter \u2014 a tesouraria da empresa agentificada na Stellar",
+  "description": "Charter — a tesouraria da empresa agentificada na Stellar",
   "scripts": {
     "bootstrap:identity": "./scripts/bootstrap-identity.sh",
     "demo:agent-payment": "node scripts/agent-payment-demo.mjs",
@@ -15,7 +15,8 @@
     "create:org": "node scripts/create-org.mjs",
     "web": "pnpm --filter @charter/web dev",
     "web:build": "pnpm --filter @charter/web build",
-    "test:web": "pnpm --filter @charter/web test"
+    "test:web": "pnpm --filter @charter/web test",
+    "simulacao": "node src/charter-simulacao.mjs"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^16.2.0",

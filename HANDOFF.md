@@ -190,6 +190,35 @@ recusar.
 
 ---
 
+## Charter Simulation — o roteiro assistido do terminal
+
+`pnpm simulacao` (ou `node src/charter-simulacao.mjs`). Seis passos, cada um
+pedindo confirmação: escolher agente, chamar o vendedor x402, assinar, mandar ao
+patrocinador, apresentar a prova, concluir.
+
+É assistido de propósito. Um script que faz tudo de uma vez esconde justamente o
+que interessa mostrar — que o agente **autoriza** em vez de ordenar, e que quem
+paga a taxa é outra carteira.
+
+**A lista de agentes vem da cadeia**, não de constante: o script lê `org_of`,
+mostra os agentes reais da organização e procura `AGENT_<NOME>_SECRET` para
+cada. O id da procuração também é descoberto pelo nome da regra — depender de um
+número no `.env` seria convidar o erro silencioso de assinar sob a regra do
+administrador.
+
+**Modo ensaio.** Sem `OZ_API_KEY` não há vendedor, e o script oferece uma
+exigência montada localmente, **rotulada como tal na tela**. Serve porque a tese
+do produto está nos passos 3 e 4 — assinatura do agente, decisão da procuração,
+patrocínio da taxa — e nenhum deles depende do x402. Provado assim na testnet
+com `alphafund`: assinatura sob a regra 1, procuração aprovando, liquidação em
+`0b3a66a3…`.
+
+O que ainda exige as chaves externas: o passo 2 contra um vendedor de verdade e
+o passo 5 no facilitador. Chaves em `.env.simulacao`; veja
+`.env.simulacao.example`.
+
+---
+
 ## Patrocínio de taxa — o agente assina, o fundador paga
 
 O agente carrega a chave que **autoriza** e nada além disso: sem XLM, sem conta
