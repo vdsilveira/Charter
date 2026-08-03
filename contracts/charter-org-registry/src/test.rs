@@ -97,10 +97,11 @@ struct Fixture {
 
 fn setup_com_taxa(taxa: i128) -> Fixture {
     let e = Env::default();
-    // `add_agent` chama `add_context_rule` na conta, que exige auth dela mesma —
-    // e isso acontece numa sub-invocação, não na raiz da árvore de autorização.
-    // `mock_all_auths` sozinho recusa com Error(Auth, InvalidAction).
-    e.mock_all_auths_allowing_non_root_auth();
+    // Antes: `add_agent` passava pelo `add_context_rule` do trait, que exige a
+    // auth da própria conta e cai no `__check_auth`. Hoje o registro autoriza
+    // como gestor, e `mock_all_auths` comum basta — é o mesmo que a rede
+    // concede, e é por isso que agora funciona fora do teste.
+    e.mock_all_auths();
 
     let wasm_hash = e.deployer().upload_contract_wasm(account_wasm::WASM);
     let gate = e.register(MockGate, ());

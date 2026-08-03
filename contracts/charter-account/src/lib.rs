@@ -14,11 +14,31 @@
 //! tetos independentes.
 //!
 //! A regra 0 é sempre a do **administrador**, com `Signer::Delegated(admin)` e
-//! escopo na própria conta. É ela que permite ao fundador adicionar e remover
-//! agentes assinando com a própria carteira: sem ela, administrar exigiria que
-//! um agente já existente assinasse a mudança — o ovo antes da galinha. O
-//! escopo na própria conta é deliberado: o administrador governa a
-//! organização, mas não ganha uma via livre para o tesouro.
+//! escopo na própria conta. O escopo na própria conta é deliberado: o
+//! administrador governa a organização, mas não ganha uma via livre para o
+//! tesouro.
+//!
+//! ## Por que existe um gestor separado
+//!
+//! Alterar procurações **não** passa pelo `add_context_rule` do trait da OZ.
+//! Aquele método faz `e.current_contract_address().require_auth()`, o que cai no
+//! `__check_auth` desta conta; a regra do administrador é `Delegated(fundador)`,
+//! e o `authenticate` da OZ responde com `require_auth_for_args` no endereço
+//! dele. Isso é autorização **fora da raiz**, dentro do `__check_auth`: a
+//! simulação em modo gravação não a produz e o modo `enforce` a recusa. Na
+//! prática, adicionar ou remover agente era impossível na rede — passava só em
+//! teste, sob `mock_all_auths_allowing_non_root_auth()`, cujo nome descreve
+//! exatamente o que a rede não concede.
+//!
+//! A saída é `adicionar_regra`/`remover_regra`, autorizadas pelo **gestor** — o
+//! `OrgRegistry` que fez o deploy desta conta. Autorização de contrato para
+//! contrato é satisfeita pelo próprio chamador, sem `__check_auth` no caminho.
+//! Os helpers de `smart_account::storage` não exigem auth (o construtor já os
+//! usa), então a mudança é local e não afeta a política de assinatura.
+//!
+//! A garantia não se perde: o registro exige `founder.require_auth()` na raiz
+//! antes de tocar aqui. Quem decide continua sendo o fundador — o gestor só
+//! carrega a decisão dele até a conta.
 
 // Address/Map/String/Val/Symbol/BytesN e ContextRule aparecem apenas nas
 // assinaturas que os macros `contracttrait` expandem — sem eles no escopo, a
@@ -27,7 +47,7 @@ use soroban_sdk::{
     auth::{Context, CustomAccountInterface},
     contract, contractimpl,
     crypto::Hash,
-    Address, Env, Map, String, Symbol, Val, Vec,
+    panic_with_error, Address, Env, Map, String, Symbol, Val, Vec,
 };
 use stellar_accounts::smart_account::{
     self, AuthPayload, ContextRule, ContextRuleType, ExecutionEntryPoint, Signer, SmartAccount,
@@ -39,6 +59,20 @@ pub use charter_types::AgentRule;
 /// Nome da regra do administrador. O `OrgRegistry` conta com ela na posição 0.
 pub const REGRA_ADMIN: &str = "admin";
 
+#[soroban_sdk::contracttype]
+enum Chave {
+    /// Quem pode alterar procurações: o registro que fez o deploy.
+    Gestor,
+}
+
+#[soroban_sdk::contracterror]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u32)]
+pub enum ContaError {
+    /// Chamador não é o gestor desta conta.
+    NaoEhGestor = 6000,
+}
+
 #[contract]
 pub struct CharterAccount;
 
@@ -49,7 +83,9 @@ impl CharterAccount {
     /// A regra do administrador ocupa o índice 0; os agentes seguem na ordem de
     /// `agents`, a partir de 1. É dessa ordem que o `OrgRegistry` depende para
     /// ligar rótulo a procuração.
-    pub fn __constructor(e: &Env, admin: Address, agents: Vec<AgentRule>) {
+    pub fn __constructor(e: &Env, admin: Address, gestor: Address, agents: Vec<AgentRule>) {
+        e.storage().instance().set(&Chave::Gestor, &gestor);
+
         smart_account::add_context_rule(
             e,
             &ContextRuleType::CallContract(e.current_contract_address()),
@@ -70,6 +106,46 @@ impl CharterAccount {
             );
         }
     }
+
+    /// Escreve uma procuração nova. Só o gestor chama.
+    ///
+    /// Devolve o id da regra criada — é ele que o registro guarda para saber
+    /// qual procuração apagar depois.
+    pub fn adicionar_regra(e: &Env, agent: AgentRule) -> u32 {
+        exigir_gestor(e);
+        smart_account::add_context_rule(
+            e,
+            &ContextRuleType::CallContract(agent.target),
+            &agent.label,
+            agent.valid_until,
+            &agent.signers,
+            &agent.policies,
+        )
+        .id
+    }
+
+    /// Apaga a procuração da conta. Enquanto a regra existir, o agente segue
+    /// autorizado on-chain — desativar só no registro seria teatro.
+    pub fn remover_regra(e: &Env, id: u32) {
+        exigir_gestor(e);
+        smart_account::remove_context_rule(e, id);
+    }
+
+    /// Quem administra as procurações desta conta.
+    pub fn gestor(e: &Env) -> Address {
+        e.storage().instance().get(&Chave::Gestor).unwrap()
+    }
+}
+
+/// Autorização de contrato para contrato: o registro é o chamador direto, e o
+/// host a concede sem passar pelo `__check_auth` — que é justamente o caminho
+/// que a rede recusa aqui.
+fn exigir_gestor(e: &Env) {
+    let gestor: Address = match e.storage().instance().get(&Chave::Gestor) {
+        Some(g) => g,
+        None => panic_with_error!(e, ContaError::NaoEhGestor),
+    };
+    gestor.require_auth();
 }
 
 #[contractimpl]

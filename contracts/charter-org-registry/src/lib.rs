@@ -10,11 +10,15 @@
 //! agentes. Cada **agente tem a própria carteira**, e é para ela que as regras
 //! são escritas — o administrador indica o endereço, não guarda a chave.
 //!
-//! Isso funciona porque a conta corporativa nasce com uma regra
-//! `Signer::Delegated(admin)` escopada a si mesma (ver `charter-account`): o
-//! administrador assina a transação com a própria carteira e a conta autoriza a
-//! mudança. Sem essa regra, alterar a conta exigiria a assinatura de um agente
-//! já existente, o que impediria a primeira adição.
+//! O registro é o **gestor** da conta corporativa: foi ele quem a implantou, e
+//! é ele quem escreve e apaga procurações lá dentro. A garantia está aqui, na
+//! raiz — `founder.require_auth()` antes de qualquer chamada à conta. O gestor
+//! só carrega a decisão do fundador até a conta.
+//!
+//! Não é assim por elegância. Passar pelo `add_context_rule` do trait da OZ
+//! exigiria a autorização da própria conta, que cai no `__check_auth` e pede
+//! auth fora da raiz — algo que a simulação não grava e o modo `enforce`
+//! recusa. Ver o cabeçalho de `charter-account` para a cadeia inteira.
 //!
 //! ## Remoção com efeito real
 //!
@@ -24,14 +28,26 @@
 
 use soroban_sdk::{
     contract, contractclient, contracterror, contractimpl, contracttype, panic_with_error,
-    xdr::ToXdr, Address, BytesN, Env, Map, String, Symbol, Val, Vec,
+    xdr::ToXdr, Address, BytesN, Env, String, Symbol, Vec,
 };
-use stellar_accounts::smart_account::{ContextRule, ContextRuleType, Signer};
 
 pub use charter_types::{AgentCredentials, AgentRecord, AgentRule, AgentStats, GateParams, OrgInfo};
 
 /// A regra do administrador ocupa o índice 0 na conta; os agentes vêm depois.
 const REGRA_ADMIN: u32 = 0;
+
+/// Poderes de um agente cuja procuração já não existe: nenhum.
+///
+/// Não é um valor de fachada — é o que a rede passou a permitir a ele.
+fn sem_poderes(e: &Env, label: &Symbol) -> GateParams {
+    GateParams {
+        agent_label: label.clone(),
+        allowed_fns: Vec::new(e),
+        claim_topic: 0,
+        identity_registry: e.current_contract_address(),
+        kyb_threshold: 0,
+    }
+}
 
 #[contractclient(name = "GateClient")]
 pub trait Gate {
@@ -50,17 +66,15 @@ pub trait Token {
 }
 
 /// Entradas administrativas da conta corporativa que o registro invoca.
+///
+/// **Não** são as do trait da OpenZeppelin. `add_context_rule` exige a
+/// autorização da própria conta, o que entra no `__check_auth` e depende de auth
+/// fora da raiz — recusado pela rede. Estas são da `CharterAccount` e autorizam
+/// pelo gestor, que é este registro. Ver o cabeçalho de `charter-account`.
 #[contractclient(name = "AccountClient")]
-pub trait SmartAccountAdmin {
-    fn add_context_rule(
-        e: &Env,
-        context_type: ContextRuleType,
-        name: String,
-        valid_until: Option<u32>,
-        signers: Vec<Signer>,
-        policies: Map<Address, Val>,
-    ) -> ContextRule;
-    fn remove_context_rule(e: &Env, context_rule_id: u32);
+pub trait ContaDaOrganizacao {
+    fn adicionar_regra(e: &Env, agent: AgentRule) -> u32;
+    fn remover_regra(e: &Env, id: u32);
 }
 
 #[contracterror]
@@ -150,14 +164,14 @@ impl OrgRegistry {
         let account = e
             .deployer()
             .with_current_contract(salt)
-            .deploy_v2(wasm, (founder.clone(), agents.clone()));
+            .deploy_v2(wasm, (founder.clone(), e.current_contract_address(), agents.clone()));
 
         let mut labels = Vec::new(e);
         for (i, agent) in agents.iter().enumerate() {
             let label = label_to_symbol(e, &agent.label);
             labels.push_back(label.clone());
-            // +1: a regra 0 é do administrador.
-            gravar_agente(e, &name, &label, i as u32 + 1, &gate);
+            // A regra do administrador ocupa o índice 0; os agentes vêm depois.
+            gravar_agente(e, &name, &label, REGRA_ADMIN + 1 + i as u32, &gate);
         }
 
         e.storage().persistent().set(
@@ -169,7 +183,7 @@ impl OrgRegistry {
     }
 
     /// Adiciona um agente à organização, com a carteira que o administrador
-    /// indicar. A autorização vem da regra do administrador dentro da conta.
+    /// indicar. Só o fundador — verificado aqui, na raiz.
     pub fn add_agent(e: &Env, name: Symbol, agent: AgentRule) {
         let mut org = load_org(e, &name);
         org.founder.require_auth();
@@ -180,15 +194,13 @@ impl OrgRegistry {
         }
 
         let gate = primeiro_gate(e, &agent);
-        let regra = AccountClient::new(e, &org.account).add_context_rule(
-            &ContextRuleType::CallContract(agent.target.clone()),
-            &agent.label,
-            &agent.valid_until,
-            &agent.signers,
-            &agent.policies,
-        );
+        // `adicionar_regra` em vez do `add_context_rule` do trait: aquele exige
+        // a autorização da própria conta, que cai no `__check_auth` e depende de
+        // auth fora da raiz — o que a rede recusa. Aqui o registro autoriza como
+        // chamador direto. Ver o cabeçalho de `charter-account`.
+        let regra_id = AccountClient::new(e, &org.account).adicionar_regra(&agent);
 
-        gravar_agente(e, &name, &label, regra.id, &gate);
+        gravar_agente(e, &name, &label, regra_id, &gate);
         org.agents.push_back(label);
         e.storage().persistent().set(&RegistryStorageKey::Org(name.clone()), &org);
     }
@@ -200,7 +212,7 @@ impl OrgRegistry {
         org.founder.require_auth();
 
         let mut record = load_agent(e, &name, &label);
-        AccountClient::new(e, &org.account).remove_context_rule(&record.context_rule_id);
+        AccountClient::new(e, &org.account).remover_regra(&record.context_rule_id);
 
         record.active = false;
         e.storage().persistent().set(&RegistryStorageKey::Agent(name, label), &record);
@@ -221,9 +233,22 @@ impl OrgRegistry {
         let org = load_org(e, &name);
         let record = load_agent(e, &name, &label);
 
+        // Remover a procuração desinstala a policy, então o gate não responde
+        // mais por ela. Perguntar assim mesmo faria a credencial de um agente
+        // revogado **falhar** em vez de dizer "revogado" — e a página que a
+        // contraparte lê é justamente onde isso precisa ficar claro.
         let gate = GateClient::new(e, &record.gate);
-        let params = gate.get_params(&record.context_rule_id, &org.account);
-        let stats = gate.get_stats(&record.context_rule_id, &org.account);
+        let params = gate
+            .try_get_params(&record.context_rule_id, &org.account)
+            .unwrap_or_else(|_| Ok(sem_poderes(e, &label)))
+            .unwrap_or_else(|_| sem_poderes(e, &label));
+        // Conduta passada não se apaga com a revogação: se o gate ainda
+        // responder, o histórico continua à vista.
+        let zerado = AgentStats { ops_ok: 0, volume_total: 0, volume_attested: 0, first_seen: 0 };
+        let stats = gate
+            .try_get_stats(&record.context_rule_id, &org.account)
+            .unwrap_or_else(|_| Ok(zerado.clone()))
+            .unwrap_or(zerado);
 
         let verifier: Address =
             e.storage().instance().get(&RegistryStorageKey::Verifier).unwrap();

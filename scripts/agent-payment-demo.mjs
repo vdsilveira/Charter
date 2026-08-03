@@ -107,7 +107,13 @@ const deployTx = (await builder())
       address: new Address(admin.publicKey()),
       wasmHash: Buffer.from(ACCOUNT_WASM, "hex"),
       salt,
-      constructorArgs: [xdr.ScVal.scvVec([rule])],
+      // (admin, gestor, agents). Aqui a conta não vem do registro, então o
+      // próprio admin é o gestor — é ele quem poderia alterar procurações.
+      constructorArgs: [
+        new Address(admin.publicKey()).toScVal(),
+        new Address(admin.publicKey()).toScVal(),
+        xdr.ScVal.scvVec([rule]),
+      ],
     }),
   )
   .setTimeout(60)
@@ -140,7 +146,10 @@ const signer = createCharterSigner({
   account: accountAddr,
   agentSecret: process.env.AGENT_SECRET,
   verifier: VERIFIER,
-  contextRuleId: 0,
+  // A regra 0 é a do administrador desde que a conta passou a nascer com ela;
+  // a procuração do agente é a 1. Assinar sob a 0 devolve 3002 — o signer
+  // apresentado não pertence àquela regra.
+  contextRuleId: 1,
   networkPassphrase: PASS,
   rpc: server,
 });

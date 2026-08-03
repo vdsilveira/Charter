@@ -199,19 +199,29 @@ function gateParams(a: AgenteEntrada, identityVerifier: string, claimTopic: numb
 /**
  * `AgentRule { label, policies, signers, target, valid_until }`
  *
- * O signatário é sempre `Delegated(carteira do agente)`: a conta corporativa
- * delega a verificação ao endereço dele, que assina com a própria chave. A
- * organização guarda a permissão, nunca o segredo.
+ * O signatário é `External(verificador ed25519, chave pública do agente)`, e a
+ * chave pública sai do próprio endereço `G…` — não há nada a mais para o
+ * administrador informar, e a organização segue guardando a permissão, nunca o
+ * segredo.
  *
- * A alternativa `External(verifier, pubkey)` saiu daqui junto com um bug: as
- * chaves eram geradas no servidor e o segredo, descartado — o agente nascia
- * com procuração válida e sem nenhuma forma de usá-la.
+ * **Não** é `Delegated(carteira)`, que parece o caminho natural. O
+ * `authenticate` da OpenZeppelin responde a um signer delegado com
+ * `require_auth_for_args` no endereço dele, dentro do `__check_auth` — auth
+ * fora da raiz, que a simulação não grava e o modo `enforce` recusa. Um agente
+ * assim nasceria com procuração válida e sem conseguir assinar nada, que é
+ * exatamente o defeito anterior (chaves geradas no servidor e descartadas) com
+ * outra causa.
+ *
+ * Com `External`, o agente assina o auth digest com a própria chave e o
+ * verificador confere — é o que `charter-signer` faz, e o caminho que a rede
+ * aceita hoje.
  */
 function agentRule(a: AgenteEntrada, cfg: {
   gate: string;
   target: string;
   identityVerifier: string;
   claimTopic: number;
+  verifier: string;
 }) {
   return xdr.ScVal.scvMap([
     entry("label", xdr.ScVal.scvString(a.label)),
@@ -224,7 +234,16 @@ function agentRule(a: AgenteEntrada, cfg: {
         }),
       ]),
     ),
-    entry("signers", xdr.ScVal.scvVec([xdr.ScVal.scvVec([sym("Delegated"), addr(a.carteira)])])),
+    entry(
+      "signers",
+      xdr.ScVal.scvVec([
+        xdr.ScVal.scvVec([
+          sym("External"),
+          addr(cfg.verifier),
+          xdr.ScVal.scvBytes(StrKey.decodeEd25519PublicKey(a.carteira)),
+        ]),
+      ]),
+    ),
     entry("target", addr(cfg.target)),
     entry("valid_until", xdr.ScVal.scvVoid()),
   ]);
@@ -266,6 +285,7 @@ export async function montarConstituicao({
     target: env("CHARTER_TARGET"),
     identityVerifier: env("CHARTER_IDENTITY_VERIFIER"),
     claimTopic: Number(process.env.CHARTER_CLAIM_TOPIC ?? 1),
+    verifier: env("CHARTER_ED25519_VERIFIER"),
   };
 
   return prepararParaAssinatura(
@@ -303,6 +323,7 @@ export async function montarAdicaoAgente(org: string, a: AgenteEntrada, fundador
     target: env("CHARTER_TARGET"),
     identityVerifier: env("CHARTER_IDENTITY_VERIFIER"),
     claimTopic: Number(process.env.CHARTER_CLAIM_TOPIC ?? 1),
+    verifier: env("CHARTER_ED25519_VERIFIER"),
   });
 
   return prepararParaAssinatura(

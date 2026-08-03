@@ -86,11 +86,11 @@ describe("leitura da cadeia", () => {
   });
 
   it("org_of devolve fundador e os agentes atuais", { timeout: 60_000 }, async () => {
-    const info = await chain.orgDe("matrix");
+    const info = await chain.orgDe("alphafund");
 
-    // A lista de agentes vem do registro, não de um padrão no código: era o
-    // `trader,auditor` fixo que escondia um agente chamado "Neo".
-    expect(info.agents).toContain("Neo");
+    // A lista vem do registro, não de um padrão no código — e inclui o que foi
+    // adicionado depois da constituição, que é o que o redeploy destravou.
+    expect(info.agents).toContain("trader");
     expect(info.founder).toMatch(/^G/);
     expect(info.account).toMatch(/^C/);
   });

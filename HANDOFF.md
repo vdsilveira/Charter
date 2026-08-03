@@ -24,7 +24,7 @@ este arquivo diz **onde paramos**.
 | 7 · auditoria e disclosure | ✅ | 4 testes; auditor designado abre, chave errada não |
 | 8 · console e credencial | ✅ | credencial em uma leitura; simulação prevê recusa |
 | Taxa de constituição | ✅ | cofre `100000000000 → 100050000000` ao constituir |
-| Gestão de agentes | ⚠️ **bloqueado on-chain** | só passa em teste de contrato; ver §Auth fora da raiz |
+| Gestão de agentes | ✅ | add/remove provados na testnet após o redeploy |
 | Carteira Freighter | ✅ | rede validada antes de assinar |
 | Constituição assinada pelo fundador | ✅ | `matrix` criada na testnet pela carteira do usuário |
 | Minhas organizações (`/orgs`) | ✅ | nomes do histórico, agentes de `org_of` |
@@ -214,46 +214,46 @@ vale juntar ao redeploy proposto abaixo.
 
 ---
 
-## Auth fora da raiz — o que bloqueia a gestão de agentes
+## Auth fora da raiz — resolvido pelo redeploy de 03/08/2026
 
-**`add_agent` e `remove_agent` nunca funcionaram contra a rede.** Passam em
-`cargo test` sob `mock_all_auths_allowing_non_root_auth()`, cujo próprio nome
-descreve o que a rede não concede por padrão. Nenhum script ou teste de
-integração jamais os executou na testnet — a descoberta veio ao mover a
-assinatura para o browser, e **não** é consequência dessa mudança: o caminho
-antigo, assinando no servidor, falha igual.
+**O problema.** `add_agent`/`remove_agent` passavam pelo `add_context_rule` do
+trait da OpenZeppelin, que faz `e.current_contract_address().require_auth()`. A
+conta autoriza a si mesma, o que entra no `__check_auth`; a regra do
+administrador era `Signer::Delegated(fundador)`, e o `authenticate` da OZ
+responde a um signer delegado com `require_auth_for_args` no endereço dele.
+Isso é **autorização fora da raiz**: a simulação em modo gravação não a produz,
+e o `enforce` recusa. Nunca funcionou na rede — só em `cargo test`, sob
+`mock_all_auths_allowing_non_root_auth()`, cujo nome descreve o que a rede não
+concede.
 
-A cadeia: `add_agent` chama `add_context_rule` na conta corporativa; a conta
-exige a própria autorização; a regra do administrador usa
-`Signer::Delegated(fundador)`, e o `authenticate` da OZ faz
+**A saída.** `storage::add_context_rule` (a função livre, que o construtor já
+usava) **não exige auth nenhuma**. A `CharterAccount` passou a expor
+`adicionar_regra`/`remover_regra`, autorizadas pelo **gestor** — o `OrgRegistry`
+que a implantou. Autorização de contrato para contrato é concedida ao chamador
+direto, sem `__check_auth` no caminho. A garantia não mudou de lugar: o registro
+exige `founder.require_auth()` na raiz antes de tocar na conta.
 
-```rust
-Signer::Delegated(addr) => addr.require_auth_for_args((auth_digest,).into_val(e))
-```
+Sinal de que funcionou: os testes do registro passaram de
+`mock_all_auths_allowing_non_root_auth()` para `mock_all_auths()` comum — o
+mesmo que a rede concede.
 
-Isso é autorização **fora da raiz**, dentro do `__check_auth`. O que foi tentado,
-em ordem, e o que cada passo ensinou:
+**O segundo defeito, achado no caminho.** `Signer::Delegated(carteira)` tem
+exatamente o mesmo problema, pelo mesmo motivo. Um agente criado assim nasceria
+com procuração válida e **sem conseguir assinar nada** — o mesmo sintoma do bug
+das chaves geradas e descartadas, com outra causa. Os agentes voltaram a usar
+`Signer::External(verificador ed25519, chave pública)`, com a chave derivada do
+próprio endereço `G…`: o administrador continua informando só a carteira, e o
+agente assina o auth digest com a própria chave, como `charter-signer` faz.
 
-| Tentativa | Resultado |
-|---|---|
-| `prepareTransaction` (gravação padrão) | `InvalidAction` — recusa gravar auth fora da raiz |
-| `authMode: "record_allow_nonroot"` | grava: 2 entries, a segunda para a conta |
-| entries como vieram, assinando a tx | `__check_auth` trapa: `UnreachableCodeReached` |
-| `AuthPayload { context_rule_ids: [0], signers: { Delegated: b"" } }` | avança: agora falta footprint (`ContextRuleData(0)` fora dele) |
-| 2ª passada em `enforce` para refazer o footprint | `InvalidAction` — a conta-fonte não cobre o `require_auth_for_args` |
-| entrada aninhada montada à mão (`__check_auth` + digest) | `InvalidAction` — forma da invocação não confere |
+**Constatação de desenho:** rótulo removido **não pode ser reusado**.
+`add_agent` verifica `has(Agent(name,label))`, e o registro do agente revogado
+permanece. Reaproveitar um nome exige outra organização.
 
-**Saída proposta, de contrato:** a regra do administrador deve delegar ao
-**endereço do registro**, não ao do fundador. Um contrato autoriza as próprias
-sub-invocações, então o `__check_auth` passaria sem entrada aninhada. A garantia
-não se perde: o registro já exige `founder.require_auth()` na raiz antes de
-tocar na conta, e é ele quem decide se quem chamou é o fundador. Custa
-redeploy de `CharterAccount` e `OrgRegistry`, e as organizações existentes
-precisariam ser recriadas.
-
-Até lá, a constituição cobre o caso principal — ela **atribui todos os agentes**
-de uma vez, porque o construtor da conta escreve as regras sem sub-invocação.
-O que falta é adicionar e remover **depois**.
+**`credentials_of` também precisou mudar.** Remover a procuração desinstala a
+policy, e o gate deixa de responder por ela — a credencial de um agente
+revogado falhava com 4000 em vez de dizer "revogado". Agora usa `try_get_params`
+e devolve poderes zerados, que é o que a rede de fato permite a ele. Só apareceu
+porque a remoção passou a funcionar.
 
 ---
 

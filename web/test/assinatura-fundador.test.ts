@@ -102,39 +102,46 @@ describe("constituição para o fundador assinar", () => {
 
 describe("gestão de agentes para o fundador assinar", () => {
   /**
-   * Bloqueado por uma limitação anterior a esta mudança, e não pelo lado de
-   * quem assina.
+   * Destravado pelo redeploy: a conta passou a expor `adicionar_regra` e
+   * `remover_regra`, autorizadas pelo **registro** como gestor.
    *
-   * `add_agent`/`remove_agent` chamam `add_context_rule` na conta corporativa.
-   * A conta exige a própria autorização, e a regra do administrador usa
-   * `Signer::Delegated(fundador)` — que, no `__check_auth`, faz
-   * `require_auth_for_args((digest,))` no endereço do fundador. Isso é
-   * autorização **fora da raiz**: a simulação em modo gravação não a produz, e
-   * o modo `enforce` recusa mesmo com a entrada montada à mão e o footprint
-   * refeito em duas passadas.
+   * Antes disto, o caminho passava pelo `add_context_rule` do trait da OZ, que
+   * exige a autorização da própria conta e cai no `__check_auth` — pedindo auth
+   * fora da raiz, que a simulação não grava e o modo `enforce` recusa. Passava
+   * só em teste de contrato, sob `mock_all_auths_allowing_non_root_auth()`,
+   * cujo nome descreve o que a rede não concede.
    *
-   * Nunca funcionou contra a rede — só nos testes de contrato, sob
-   * `mock_all_auths_allowing_non_root_auth()`, cujo próprio nome descreve o que
-   * a rede não concede. Trocar quem assina não muda isso.
-   *
-   * A saída é de contrato: a regra do administrador precisa delegar ao
-   * **endereço do registro**, não ao do fundador. Um contrato autoriza as
-   * próprias sub-invocações, então o `__check_auth` passaria sem entrada
-   * aninhada — e a garantia continua de pé, porque o registro já exige
+   * Autorização de contrato para contrato é concedida ao chamador direto, sem
+   * `__check_auth` no caminho. A garantia não mudou de lugar: o registro exige
    * `founder.require_auth()` na raiz antes de tocar na conta.
    */
-  it.skip("adição — bloqueada: Signer::Delegated exige auth fora da raiz", async () => {
-    const { xdr } = await montarAdicaoAgente("alphafund", agentes[0], FUNDADOR);
-    expect(abrir(xdr).signatures).toHaveLength(0);
+  it("adição volta sem assinatura e com o fundador na fonte", async () => {
+    const { xdr } = await montarAdicaoAgente(
+      "alphafund",
+      { ...agentes[0], label: `t${Date.now().toString(36).slice(-5)}` },
+      FUNDADOR,
+    );
+    const tx = abrir(xdr);
+
+    expect(tx.signatures).toHaveLength(0);
+    expect(tx.source).toBe(FUNDADOR);
   });
 
-  it.skip("remoção — bloqueada pelo mesmo motivo", async () => {
-    const { xdr } = await montarRemocaoAgente("alphafund", "trader", FUNDADOR);
-    expect(abrir(xdr).signatures).toHaveLength(0);
+  it("remoção volta sem assinatura e com o fundador na fonte", async () => {
+    const { xdr } = await montarRemocaoAgente("alphafund", "auditor", FUNDADOR);
+    const tx = abrir(xdr);
+
+    expect(tx.signatures).toHaveLength(0);
+    expect(tx.source).toBe(FUNDADOR);
   });
 
-  it("montar para quem não é fundador é recusado antes de assinar", async () => {
-    // Vale mesmo com o bloqueio acima: a recusa vem do registro, na raiz.
+  it("rótulo repetido é recusado antes de assinar", async () => {
+    // 5006 = LabelTaken. Descobrir na montagem poupa a transação.
+    await expect(montarAdicaoAgente("alphafund", agentes[0], FUNDADOR)).rejects.toThrow(/5006/);
+  });
+
+  it("quem não é fundador é recusado na montagem", async () => {
+    // 5004 = só o fundador administra a própria organização.
     await expect(
       montarAdicaoAgente("alphafund", agentes[0], CARTEIRA_AGENTE),
     ).rejects.toThrow();
