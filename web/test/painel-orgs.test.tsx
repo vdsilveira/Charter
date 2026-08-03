@@ -17,7 +17,13 @@ const conectada = () => ({
   getAddress: async () => ({ address: CARTEIRA }),
 });
 
-const matrix = { org: "matrix", agentes: ["Neo"], hash: "498ace77", criadaEm: "2026-08-01T18:21:25Z" };
+const matrix = {
+  org: "matrix",
+  agentes: ["Neo"],
+  hash: "498ace77",
+  criadaEm: "2026-08-01T18:21:25Z",
+  saldo: "3000000000",
+};
 
 describe("minhas organizações", () => {
   it("lista a organização e os agentes dela", async () => {
@@ -90,5 +96,32 @@ describe("minhas organizações", () => {
     render(<MinhasOrgs api={conectada()} carregar={carregar} />);
 
     await waitFor(() => expect(carregar).toHaveBeenCalledWith(CARTEIRA));
+  });
+
+  it("mostra o saldo do tesouro na própria lista", async () => {
+    render(<MinhasOrgs api={conectada()} carregar={async () => [matrix]} />);
+
+    // Sem isto, saber quanto a organização tem exige entrar em cada uma —
+    // e o saldo zero é a causa mais comum de "o agente não transfere".
+    expect(await screen.findByText(/300 XLM/)).toBeInTheDocument();
+  });
+
+  it("tesouro vazio é dito, não omitido", async () => {
+    render(
+      <MinhasOrgs api={conectada()} carregar={async () => [{ ...matrix, saldo: "0" }]} />,
+    );
+
+    expect(await screen.findByText(/no funds/i)).toBeInTheDocument();
+  });
+
+  it("saldo desconhecido não vira zero", async () => {
+    // "Não consegui ler" e "está zerado" levam a decisões opostas.
+    render(
+      <MinhasOrgs api={conectada()} carregar={async () => [{ ...matrix, saldo: undefined }]} />,
+    );
+
+    await screen.findByText("matrix");
+    expect(screen.queryByText(/no funds/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 XLM/)).not.toBeInTheDocument();
   });
 });

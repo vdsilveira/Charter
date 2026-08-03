@@ -23,6 +23,11 @@ export interface OrgDaCarteira {
   agentes: string[];
   hash: string;
   criadaEm: string;
+  /**
+   * Saldo do tesouro em stroops. Ausente quando a leitura falhou — que é
+   * diferente de zero, e leva a decisões opostas.
+   */
+  saldo?: string;
 }
 
 /** Uma operação do Horizon; só os campos que interessam. */

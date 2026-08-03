@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { freighter, type FreighterApi } from "@/lib/carteira";
+import { emXlm } from "@/lib/valores";
 import type { OrgDaCarteira } from "@/lib/minhas-orgs";
 
 async function carregarPadrao(fundador: string): Promise<OrgDaCarteira[]> {
@@ -99,6 +100,15 @@ export default function MinhasOrgs({
                 {o.agentes.length
                   ? `${o.agentes.length} agent${o.agentes.length > 1 ? "s" : ""} under power of attorney`
                   : "no agents in force"}
+                {/* Saldo ausente é leitura que falhou, e não zero: dizer "0"
+                    ali mandaria o operador financiar uma conta que talvez já
+                    tenha fundos. */}
+                {o.saldo !== undefined &&
+                  (BigInt(o.saldo) === 0n ? (
+                    <> · <span className="text-deny">no funds in the treasury</span></>
+                  ) : (
+                    <> · {emXlm(o.saldo)} XLM in the treasury</>
+                  ))}
               </CardDescription>
             </div>
             <div className="flex gap-3 text-sm">

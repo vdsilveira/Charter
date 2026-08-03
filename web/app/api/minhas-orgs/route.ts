@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env-servidor";
-import { orgDe } from "@/lib/chain";
+import { orgDe, saldoDaOrg } from "@/lib/chain";
 import { buscarOrganizacoes } from "@/lib/minhas-orgs";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,14 @@ export async function GET(req: Request) {
     const orgs = await Promise.all(
       encontradas.map(async (o) => {
         try {
-          return { ...o, agentes: (await orgDe(o.org)).agents };
+          // Saldo junto: entrar em cada organização só para descobrir que está
+          // zerada é o caminho mais longo até a causa mais comum de "o agente
+          // não transfere".
+          const [info, saldo] = await Promise.all([
+            orgDe(o.org),
+            saldoDaOrg(o.org).catch(() => undefined),
+          ]);
+          return { ...o, agentes: info.agents, saldo };
         } catch {
           // Organização ilegível não some da lista: o nome ainda é útil.
           return o;
