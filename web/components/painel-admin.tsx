@@ -28,8 +28,16 @@ async function emitirPadrao(
   // O servidor confere esta assinatura contra a chave do admin. Declarar o
   // endereço não provaria nada — o cliente manda o que quiser.
   const assinado = await wallet.signMessage?.(nonce, { address: endereco });
-  const assinatura = assinado?.signedMessage;
-  if (!assinatura) throw new Error(assinado?.error ?? "signature declined in the wallet");
+  const bruta = assinado?.signedMessage;
+  if (!bruta) throw new Error(assinado?.error ?? "signature declined in the wallet");
+
+  // A extensão pode devolver string ou bytes. `Buffer` não existe no browser
+  // sem polyfill, então a conversão é feita com o que o browser tem — usá-lo
+  // aqui era uma suposição minha que teria falhado em silêncio.
+  const assinatura =
+    typeof bruta === "string"
+      ? bruta
+      : btoa(String.fromCharCode(...new Uint8Array(bruta as ArrayLike<number>)));
 
   const r = await fetch("/api/admin/kyb", {
     method: "POST",
@@ -37,7 +45,7 @@ async function emitirPadrao(
     body: JSON.stringify({
       nonce,
       endereco,
-      assinatura: typeof assinatura === "string" ? assinatura : Buffer.from(assinatura).toString("base64"),
+      assinatura,
       conta,
     }),
   });

@@ -14,7 +14,7 @@
  * deixar entrar não é portão.
  */
 import "server-only";
-import { Keypair } from "@stellar/stellar-sdk";
+import { Keypair, hash } from "@stellar/stellar-sdk";
 import { env } from "./env-servidor";
 
 const VALIDADE_MS = 5 * 60_000;
@@ -88,7 +88,26 @@ export function conferirResposta(r: Resposta, agora = Date.now()): string | null
 
   try {
     const kp = Keypair.fromPublicKey(r.endereco);
-    const ok = kp.verify(Buffer.from(r.nonce, "utf8"), Buffer.from(r.assinatura, "base64"));
+
+    // `signMessage` entrega o blob à extensão, e é **ela** que decide o que
+    // assinar e como devolver. Sem um browser para conferir, aceitamos as
+    // formas plausíveis em vez de adivinhar uma.
+    //
+    // Isso não afrouxa o portão: toda candidata continua sendo uma assinatura
+    // da chave do administrador sobre dado derivado deste nonce. Quem não tem
+    // a chave não produz nenhuma delas.
+    const cru = Buffer.from(r.nonce, "utf8");
+    const cargas = [cru, hash(cru), Buffer.from(cru.toString("base64"), "utf8")];
+    const assinaturas = [
+      Buffer.from(r.assinatura, "base64"),
+      // Hexadecimal só é tentado quando o texto de fato é hexadecimal; do
+      // contrário `Buffer.from` devolveria lixo truncado em silêncio.
+      ...(/^[0-9a-f]+$/i.test(r.assinatura) ? [Buffer.from(r.assinatura, "hex")] : []),
+    ].filter((b) => b.length === 64);
+
+    if (assinaturas.length === 0) return "malformed signature";
+
+    const ok = assinaturas.some((sig) => cargas.some((carga) => kp.verify(carga, sig)));
     return ok ? null : "signature does not match the challenge";
   } catch {
     // Assinatura malformada é recusa, nunca exceção que vaze para a resposta.

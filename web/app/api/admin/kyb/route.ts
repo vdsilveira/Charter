@@ -18,7 +18,14 @@ export async function POST(req: Request) {
     const { nonce, endereco, assinatura, conta } = await req.json();
 
     const recusa = conferirResposta({ nonce, endereco, assinatura });
-    if (recusa) return NextResponse.json({ error: recusa }, { status: 403 });
+    if (recusa) {
+      // O tamanho da assinatura vai junto porque a extensão decide o formato, e
+      // sem esse dado a investigação vira adivinhação: 64 bytes é assinatura
+      // ed25519 crua; outro número aponta para envelope ou codificação
+      // inesperada.
+      const bytes = Buffer.from(String(assinatura ?? ""), "base64").length;
+      return NextResponse.json({ error: `${recusa} (signature: ${bytes} bytes)` }, { status: 403 });
+    }
 
     if (!conta || !StrKey.isValidEd25519PublicKey(String(conta).trim())) {
       return NextResponse.json(

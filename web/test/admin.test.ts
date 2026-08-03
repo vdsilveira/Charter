@@ -10,7 +10,7 @@
  * testes cobrirem principalmente as formas de burlá-lo.
  */
 import { readFileSync } from "node:fs";
-import { Keypair } from "@stellar/stellar-sdk";
+import { Keypair, hash } from "@stellar/stellar-sdk";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { aplicarEnv } from "@/lib/env-demo";
 
@@ -163,5 +163,60 @@ describe("portão de administração", () => {
     const m = await import("@/lib/admin");
 
     expect(m.enderecoDoAdmin()).toBe(admin.publicKey());
+  });
+
+  // -------------------------------------------------------------------------
+  // Codificações que a carteira pode devolver
+  //
+  // `signMessage` entrega o blob à extensão, e é **ela** que decide o que
+  // assinar e como devolver — a biblioteca só repassa. Sem um browser aqui, a
+  // saída é aceitar as formas plausíveis.
+  //
+  // Isso não afrouxa o portão: toda candidata continua sendo uma assinatura da
+  // chave do admin sobre dado derivado do nosso nonce. Quem não tem a chave não
+  // produz nenhuma delas.
+  // -------------------------------------------------------------------------
+
+  it("aceita assinatura em hexadecimal", () => {
+    const nonce = mod.criarDesafio();
+    const sig = admin.sign(Buffer.from(nonce, "utf8")).toString("hex");
+    expect(mod.conferirResposta({ nonce, endereco: admin.publicKey(), assinatura: sig })).toBeNull();
+  });
+
+  it("aceita assinatura sobre o sha256 do desafio", () => {
+    // Carteira que assina o hash da mensagem em vez dos bytes crus.
+    const nonce = mod.criarDesafio();
+    const sig = admin.sign(hash(Buffer.from(nonce, "utf8"))).toString("base64");
+    expect(mod.conferirResposta({ nonce, endereco: admin.publicKey(), assinatura: sig })).toBeNull();
+  });
+
+  it("aceita assinatura sobre o desafio em base64", () => {
+    // Carteira que trata o blob recebido como base64 antes de assinar.
+    const nonce = mod.criarDesafio();
+    const sig = admin.sign(Buffer.from(Buffer.from(nonce, "utf8").toString("base64"), "utf8"));
+    expect(
+      mod.conferirResposta({
+        nonce,
+        endereco: admin.publicKey(),
+        assinatura: sig.toString("base64"),
+      }),
+    ).toBeNull();
+  });
+
+  it("assinatura de outra carteira não passa em nenhuma codificação", () => {
+    const intruso = Keypair.random();
+    for (const bytes of [
+      Buffer.from(mod.criarDesafio(), "utf8"),
+      hash(Buffer.from("qualquer", "utf8")),
+    ]) {
+      const nonce = mod.criarDesafio();
+      expect(
+        mod.conferirResposta({
+          nonce,
+          endereco: admin.publicKey(),
+          assinatura: intruso.sign(bytes).toString("base64"),
+        }),
+      ).toBeTruthy();
+    }
   });
 });
