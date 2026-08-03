@@ -233,6 +233,13 @@ agentes começam em 1, na ordem da constituição.
 
 ## SEP-2 — o que está provado e o que não está
 
+**Como o nome entra numa transação.** O front resolve **antes** de montar
+qualquer coisa (`lib/enderecos.ts`), mostra o endereço na tela, e o que vai para
+a carteira e para a cadeia é sempre o endereço. Não é conveniência: contrato
+Soroban não entende nome, então mandar um significaria alguém traduzindo por
+dentro sem quem assina ver o quê. Aceitam nome federado hoje: o destinatário do
+pagamento no console e a conta a verificar em `/admin`.
+
 **Provado:** `/.well-known/stellar.toml` publica o servidor e a passphrase da
 rede; `/federation?q=…&type=name` resolve `agente*organização*domínio` para a
 conta corporativa, e `founder*organização*domínio` para quem constituiu. Agente

@@ -73,10 +73,13 @@ describe("emissão por endereço federado", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/não encontrado|not found/i);
   });
 
-  it("endereço cru continua funcionando sem resolver nada", async () => {
+  it("endereço cru atravessa sem tradução", async () => {
     const user = userEvent.setup();
     const emitir = vi.fn().mockResolvedValue({ conta: FUNDADOR, verificado: true });
-    const resolver = vi.fn();
+    // O resolvedor comum devolve endereços válidos sem consultar a federação.
+    // O que importa aqui não é quem decide, e sim que nada é traduzido pelo
+    // caminho — e que a tela não anuncia uma resolução que não houve.
+    const resolver = vi.fn().mockResolvedValue(FUNDADOR);
 
     render(<PainelAdmin api={conectada()} emitir={emitir} resolver={resolver} />);
     await preencher(user, FUNDADOR);
@@ -84,6 +87,6 @@ describe("emissão por endereço federado", () => {
     await waitFor(() => expect(emitir).toHaveBeenCalled());
     expect(emitir.mock.calls[0][0]).toBe(FUNDADOR);
     expect(emitir.mock.calls[0][1]).toBe(ADMIN);
-    expect(resolver).not.toHaveBeenCalled();
+    expect(screen.queryByText(/resolved to/i)).not.toBeInTheDocument();
   });
 });

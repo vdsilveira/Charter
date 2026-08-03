@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { traduzirErro } from "@/lib/errors";
+import { resolverEndereco } from "@/lib/enderecos";
 
 export interface Simulacao {
   wouldSucceed: boolean;
@@ -13,6 +14,8 @@ export interface Simulacao {
 export interface PagamentoFormProps {
   simular: (p: { destinatario: string; valor: string }) => Promise<Simulacao>;
   enviar: (p: { destinatario: string; valor: string }) => Promise<{ hash: string }>;
+  /** Injetável para teste; em produção consulta o servidor de federation. */
+  resolver?: (valor: string) => Promise<string>;
 }
 
 /**
@@ -23,12 +26,18 @@ export interface PagamentoFormProps {
  * gravável, então sem simular o operador pagaria uma transação para descobrir
  * que foi barrado — e, na demo, olharia para um erro em vez de uma explicação.
  */
-export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
+export default function PagamentoForm({
+  simular,
+  enviar,
+  resolver = (v) => resolverEndereco(v),
+}: PagamentoFormProps) {
   const [destinatario, setDestinatario] = useState("");
   const [valor, setValor] = useState("");
   const [previsao, setPrevisao] = useState<Simulacao | null>(null);
   const [motivo, setMotivo] = useState<string | null>(null);
   const [hash, setHash] = useState<string | null>(null);
+  /** Endereço para onde o nome federado apontou. */
+  const [resolvido, setResolvido] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
   const podeEnviar = previsao?.wouldSucceed === true && !ocupado;
@@ -38,7 +47,12 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
     setMotivo(null);
     setHash(null);
     try {
-      const r = await simular({ destinatario, valor });
+      // O nome se resolve aqui, antes de qualquer coisa: o que vai para a rede
+      // é sempre o endereço, e quem assina precisa vê-lo.
+      const alvo = await resolver(destinatario);
+      setResolvido(alvo === destinatario.trim() ? null : alvo);
+
+      const r = await simular({ destinatario: alvo, valor });
       setPrevisao(r);
       if (!r.wouldSucceed) setMotivo(traduzirErro(r.error));
     } catch (err) {
@@ -52,7 +66,7 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
   async function aoEnviar() {
     setOcupado(true);
     try {
-      const r = await enviar({ destinatario, valor });
+      const r = await enviar({ destinatario: resolvido ?? destinatario.trim(), valor });
       setHash(r.hash);
     } catch (err) {
       setMotivo(traduzirErro(err));
@@ -65,14 +79,17 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="mb-1 block text-slate">Recipient</span>
+          <span className="mb-1 block text-slate">
+            Recipient <span className="text-slate/70">— address or federated name</span>
+          </span>
           <Input
             value={destinatario}
             onChange={(e) => {
               setDestinatario(e.target.value);
               setPrevisao(null); // mudou o destino: a previsão anterior não vale mais
+              setResolvido(null);
             }}
-            placeholder="G…"
+            placeholder="G… or agent*org*domain"
           />
         </label>
         <label className="block text-sm">
@@ -88,6 +105,10 @@ export default function PagamentoForm({ simular, enviar }: PagamentoFormProps) {
           />
         </label>
       </div>
+
+      {resolvido && (
+        <p className="break-all font-mono text-xs text-slate">resolved to {resolvido}</p>
+      )}
 
       <div className="flex items-center gap-2">
         <Button variant="outline" onClick={aoSimular} disabled={ocupado}>

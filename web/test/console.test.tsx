@@ -18,6 +18,11 @@ const decisoes = [
   { tx: "bb22", ledger: 11, agent: "trader", fn: "transfer", amount: "900", counterpartyVerified: true },
 ];
 
+/** Endereços válidos: a tela recusa formato inválido antes de simular. */
+const SEM_CLAIM = "GDGTUEWBXFWV6INIRD6CMHGFVTILUYJIGYHJFNUNWYXIRHABEAYDGKDM";
+const COM_CLAIM = "GBZFNF6MRYZ4DEDHQTJO3KXLIFQQAB4EMXER2ZZPYDMF5MVT3S4LM4ZN";
+const QUALQUER = "GA553CCPL3ABAUQWUD6POLZLWG4QX3RS5BIMZOD6NCHOENNYUOQTPG54";
+
 describe("feed de decisões", () => {
   it("lista as decisões vindas da cadeia", async () => {
     render(<Feed carregar={async () => decisoes} />);
@@ -82,7 +87,7 @@ describe("simulação prévia do pagamento", () => {
     const enviar = vi.fn();
 
     render(<PagamentoForm simular={simular} enviar={enviar} />);
-    await user.type(screen.getByLabelText(/recipient/i), "GA…SEMCLAIM");
+    await user.type(screen.getByLabelText(/recipient/i), SEM_CLAIM);
     await user.type(screen.getByLabelText(/amount/i), "900");
     await user.click(screen.getByRole("button", { name: /simulate/i }));
 
@@ -97,7 +102,7 @@ describe("simulação prévia do pagamento", () => {
     const enviar = vi.fn();
 
     render(<PagamentoForm simular={simular} enviar={enviar} />);
-    await user.type(screen.getByLabelText(/recipient/i), "GA…SEMCLAIM");
+    await user.type(screen.getByLabelText(/recipient/i), SEM_CLAIM);
     await user.type(screen.getByLabelText(/amount/i), "900");
     await user.click(screen.getByRole("button", { name: /simulate/i }));
 
@@ -112,7 +117,7 @@ describe("simulação prévia do pagamento", () => {
     const enviar = vi.fn().mockResolvedValue({ hash: "ok123" });
 
     render(<PagamentoForm simular={simular} enviar={enviar} />);
-    await user.type(screen.getByLabelText(/recipient/i), "GA…COMCLAIM");
+    await user.type(screen.getByLabelText(/recipient/i), COM_CLAIM);
     await user.type(screen.getByLabelText(/amount/i), "100");
     await user.click(screen.getByRole("button", { name: /simulate/i }));
 
@@ -129,10 +134,68 @@ describe("simulação prévia do pagamento", () => {
     });
 
     render(<PagamentoForm simular={simular} enviar={vi.fn()} />);
-    await user.type(screen.getByLabelText(/recipient/i), "GA…QUALQUER");
+    await user.type(screen.getByLabelText(/recipient/i), QUALQUER);
     await user.type(screen.getByLabelText(/amount/i), "999999");
     await user.click(screen.getByRole("button", { name: /simulate/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/quota|limit/i);
+  });
+
+  it("aceita nome federado no destinatário e resolve antes de simular", async () => {
+    const user = userEvent.setup();
+    const simular = vi.fn().mockResolvedValue({ wouldSucceed: true });
+    const resolver = vi.fn().mockResolvedValue("GBG6UX7LDUU5ZAVRASDVB3EP7BXKM7ZXVHZQWPPPQXTVVUOSNRCWCGQO");
+
+    render(<PagamentoForm simular={simular} enviar={vi.fn()} resolver={resolver} />);
+
+    await user.type(screen.getByLabelText(/recipient/i), "Neo*Matrix*charter.local");
+    await user.type(screen.getByLabelText(/amount/i), "100");
+    await user.click(screen.getByRole("button", { name: /simulate/i }));
+
+    // O que vai para a cadeia é o endereço; o nome morre aqui.
+    await waitFor(() => expect(simular).toHaveBeenCalled());
+    expect(simular.mock.calls[0][0].destinatario).toBe(
+      "GBG6UX7LDUU5ZAVRASDVB3EP7BXKM7ZXVHZQWPPPQXTVVUOSNRCWCGQO",
+    );
+  });
+
+  it("mostra o endereço resolvido antes de assinar", async () => {
+    const user = userEvent.setup();
+    const resolver = vi.fn().mockResolvedValue("GBG6UX7LDUU5ZAVRASDVB3EP7BXKM7ZXVHZQWPPPQXTVVUOSNRCWCGQO");
+
+    render(
+      <PagamentoForm
+        simular={vi.fn().mockResolvedValue({ wouldSucceed: true })}
+        enviar={vi.fn()}
+        resolver={resolver}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/recipient/i), "Neo*Matrix*charter.local");
+    await user.type(screen.getByLabelText(/amount/i), "100");
+    await user.click(screen.getByRole("button", { name: /simulate/i }));
+
+    // Quem assina precisa ver para onde o valor vai de fato.
+    expect(await screen.findByText(/GBG6UX7L/)).toBeInTheDocument();
+  });
+
+  it("nome que não resolve não chega a simular", async () => {
+    const user = userEvent.setup();
+    const simular = vi.fn();
+
+    render(
+      <PagamentoForm
+        simular={simular}
+        enviar={vi.fn()}
+        resolver={vi.fn().mockRejectedValue(new Error("agente não encontrado"))}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/recipient/i), "Trinity*Matrix*charter.local");
+    await user.type(screen.getByLabelText(/amount/i), "100");
+    await user.click(screen.getByRole("button", { name: /simulate/i }));
+
+    expect(simular).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(/não encontrado/);
   });
 });

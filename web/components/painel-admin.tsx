@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { freighter, PASSPHRASE_TESTNET, type FreighterApi } from "@/lib/carteira";
+import { pareceFederado, resolverEndereco } from "@/lib/enderecos";
 
 export interface ResultadoKyb {
   conta: string;
@@ -62,18 +63,10 @@ async function emitirPadrao(
  * `credentials_of` consulta para o selo "organização verificada" — não a conta
  * corporativa.
  */
-/** Resolve `rótulo*organização*domínio` pelo próprio servidor de federation. */
-async function resolverPadrao(nome: string): Promise<string> {
-  const r = await fetch(`/federation?q=${encodeURIComponent(nome)}&type=name`);
-  const b = await r.json();
-  if (!r.ok) throw new Error(b?.detail ?? "federated address not found");
-  return b.account_id;
-}
-
 export default function PainelAdmin({
   api,
   emitir = emitirPadrao,
-  resolver = resolverPadrao,
+  resolver = (v) => resolverEndereco(v),
 }: {
   api?: FreighterApi;
   emitir?: (conta: string, endereco: string, api?: FreighterApi) => Promise<ResultadoKyb>;
@@ -117,8 +110,8 @@ export default function PainelAdmin({
     try {
       // Endereço federado é resolvido antes de qualquer escrita: o que vai para
       // a cadeia é sempre o endereço, nunca o apelido.
-      const alvo = conta.includes("*") ? await resolver(conta.trim()) : conta.trim();
-      setResolvido(conta.includes("*") ? alvo : null);
+      const alvo = await resolver(conta.trim());
+      setResolvido(pareceFederado(conta) ? alvo : null);
       setFeito(await emitir(alvo, endereco, api));
     } catch (e) {
       setErro(String((e as Error)?.message ?? e));
