@@ -26,6 +26,7 @@ este arquivo diz **onde paramos**.
 | Taxa de constituição | ✅ | cofre `100000000000 → 100050000000` ao constituir |
 | Gestão de agentes | ✅ | add/remove provados na testnet após o redeploy |
 | Carteira Freighter | ✅ | rede validada antes de assinar |
+| Patrocínio de taxa | ✅ | agente assina, fundador paga; provado na testnet |
 | Constituição assinada pelo fundador | ✅ | `matrix` criada na testnet pela carteira do usuário |
 | Minhas organizações (`/orgs`) | ✅ | nomes do histórico, agentes de `org_of` |
 | Console e credencial por carteira | ✅ | `seletor-org` resolve; `alphafund` saiu dos padrões |
@@ -120,6 +121,47 @@ grafo seria o oposto do que compliance pede — resposta pronta para o Q&A.
    Com as duas: `docker compose up --build` e `docker compose run --rm agente`.
 3. **Notion do evento**: já lido e resumido acima.
 4. **MCP `stellar-raven`**: autenticar com `/mcp` → Authenticate.
+
+---
+
+## Patrocínio de taxa — o agente assina, o fundador paga
+
+O agente carrega a chave que **autoriza** e nada além disso: sem XLM, sem conta
+financiada, sem existir na rede. O que ele produz é uma
+`SorobanAuthorizationEntry` assinada. Quem paga a taxa é o patrocinador, que não
+tem poder algum sobre o tesouro — a conta corporativa só se move com a
+assinatura do agente, dentro da procuração dele.
+
+    src/agente-patrocinado.mjs   →  POST /api/patrocinio  →  rede
+
+**A decisão de segurança:** o patrocinador **remonta a operação** a partir de
+campos tipados (organização, destinatário, valor) e nunca executa calldata
+recebida. Um patrocinador que assina o que mandarem é torneira de taxa e, pior,
+oráculo de execução para qualquer contrato. Se a remontagem diferir do que o
+agente assinou, a autorização falha on-chain — não há como enganar os dois lados
+ao mesmo tempo. O pior caso de um pedido forjado é o patrocinador desperdiçar a
+própria taxa.
+
+**Por que o agente simula duas vezes.** A primeira sonda roda *sem* autorização,
+e a policy só executa quando as auth entries estão presentes — ela é otimista
+por construção. A segunda, já com o que foi assinado, é a que revela a recusa
+real com o código do contrato. Sem ela o agente manda uma transação destinada a
+reverter e o patrocinador paga para descobrir; a recusa chega como
+`Error(Auth, InvalidAction)`, que não diz nada a ninguém.
+
+Provado na testnet, com `alphafund` (fundador = admin = patrocinador):
+
+| Caso | Resultado |
+|---|---|
+| 100 e 250 para contraparte verificada | liquidado, taxa paga pelo fundador |
+| 900 para contraparte **sem** claim | recusado com 4003, antes de gastar taxa |
+| 900 para contraparte com claim | liquidado |
+| assinatura sob a regra do administrador (0) | recusado |
+
+**Para trocar de organização:** `SPONSOR_SECRET` é a chave de quem paga (deve
+ser o fundador daquela organização), e o agente recebe `AGENT_SECRET` mais o id
+da regra. O id não é adivinhável: a regra 0 é sempre do administrador, e os
+agentes começam em 1, na ordem da constituição.
 
 ---
 

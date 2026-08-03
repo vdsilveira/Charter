@@ -15,6 +15,7 @@ export default defineConfig({
       ["test/assinatura-fundador.test.ts", "node"],
       ["test/claim-kyb.test.ts", "node"],
       ["test/admin.test.ts", "node"],
+      ["test/patrocinio.test.ts", "node"],
     ],
   },
   resolve: {
