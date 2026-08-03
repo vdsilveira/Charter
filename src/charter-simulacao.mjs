@@ -27,13 +27,20 @@ import { createCharterSigner } from "./charter-signer.mjs";
 // Ambiente
 // ---------------------------------------------------------------------------
 
+/** Tira aspas em volta, como o shell faz. */
+const semAspas = (v) =>
+  v.length > 1 && v[0] === v.at(-1) && (v[0] === '"' || v[0] === "'") ? v.slice(1, -1) : v;
+
 const raiz = new URL("..", import.meta.url);
 for (const arquivo of [".env.simulacao", ".env.demo"]) {
   try {
     for (const linha of readFileSync(new URL(arquivo, raiz), "utf8").split("\n")) {
       const i = linha.indexOf("=");
       if (i > 0 && !linha.trim().startsWith("#")) {
-        process.env[linha.slice(0, i).trim()] ??= linha.slice(i + 1).trim();
+        // Aspas em volta são convenção de shell, não parte do valor: o `source`
+        // do bash as remove, e mantê-las aqui faria a mesma chave valer uma
+        // coisa por shell e outra por código.
+        process.env[linha.slice(0, i).trim()] ??= semAspas(linha.slice(i + 1).trim());
       }
     }
   } catch {
@@ -140,7 +147,19 @@ async function pedirRecurso() {
     json = null;
   }
 
-  return { status: r.status, cabecalho: r.headers.get("payment-required"), json, cru: corpo };
+  // O x402 v2 manda as exigências no cabeçalho `PAYMENT-REQUIRED`, em base64.
+  // Ler só o corpo devolvia `{}` e fazia parecer que o vendedor não cobrava.
+  const cabecalho = r.headers.get("payment-required") ?? r.headers.get("PAYMENT-REQUIRED");
+  let doCabecalho = null;
+  if (cabecalho) {
+    try {
+      doCabecalho = JSON.parse(Buffer.from(cabecalho, "base64").toString("utf8"));
+    } catch {
+      /* cabeçalho ilegível: o corpo ainda pode servir */
+    }
+  }
+
+  return { status: r.status, json: doCabecalho ?? json, cru: corpo };
 }
 
 /**
@@ -217,11 +236,39 @@ async function assinarComAgente({ agente, conta, ruleId, ativo, para, valor }) {
   const entradas = [];
   for (const e of prevista.result?.auth ?? []) {
     const { signedAuthEntry } = await signer.signAuthEntry(e.toXDR("base64"), {
-      validUntilLedgerSeq: ultimo + 120,
+      validUntilLedgerSeq: ultimo + 300,
     });
     entradas.push(signedAuthEntry);
   }
   return entradas;
+}
+
+/**
+ * A transação que o x402 espera como prova de pagamento.
+ *
+ * O payload do esquema `exact` é a **transação inteira**, não um hash: o
+ * facilitador a submete e patrocina a taxa (`areFeesSponsored: true`). Por isso
+ * ele e o nosso patrocinador são rotas alternativas — quem liquidar primeiro
+ * consome a autorização.
+ */
+async function transacaoParaX402({ conta, ativo, para, valor, entradas }) {
+  const tx = new TransactionBuilder(new Account(Keypair.random().publicKey(), "0"), {
+    fee: "5000000",
+    networkPassphrase: PASS,
+  })
+    .addOperation(
+      operacaoDePagamento({
+        ativo,
+        de: conta,
+        para,
+        valor,
+        auth: entradas.map((e) => xdr.SorobanAuthorizationEntry.fromXDR(e, "base64")),
+      }),
+    )
+    .setTimeout(300)
+    .build();
+
+  return (await server.prepareTransaction(tx)).toXDR();
 }
 
 /**
@@ -299,23 +346,23 @@ async function patrocinar({ conta, ativo, para, valor, entradas }) {
   return { hash: enviada.hash, patrocinador: patrocinador.publicKey() };
 }
 
-/** Reapresenta o recurso com a prova de pagamento. */
-async function liquidar({ hash, exige }) {
+/** Reapresenta o recurso com a prova de pagamento, no formato do x402. */
+async function liquidar({ transacao, exige }) {
   const carga = {
-    x402Version: 1,
+    x402Version: 2,
     scheme: exige?.scheme ?? "exact",
     network: exige?.network ?? "stellar:testnet",
-    payload: { transactionHash: hash },
+    payload: { transaction: transacao },
   };
 
   const r = await fetch(RECURSO, {
     headers: {
       accept: "application/json",
-      "payment-signature": Buffer.from(JSON.stringify(carga)).toString("base64"),
+      "PAYMENT-SIGNATURE": Buffer.from(JSON.stringify(carga)).toString("base64"),
     },
   });
 
-  return { status: r.status, corpo: await r.text() };
+  return { status: r.status, corpo: await r.text(), resposta: r.headers.get("PAYMENT-RESPONSE") };
 }
 
 // ---------------------------------------------------------------------------
@@ -446,8 +493,45 @@ async function rodada() {
   console.log(ok("     conferido: a procuração permite esta operação"));
 
   // 4 ────────────────────────────────────────────────────────────────────────
+  //
+  // Duas rotas de liquidação, e só uma pode acontecer: quem submeter primeiro
+  // consome a autorização. O patrocinador é o desenho do Charter — o fundador
+  // paga pelo agente. O facilitador é o desenho do x402, e ele também
+  // patrocina (`areFeesSponsored: true`).
   passo(4, "Enviar ao patrocinador — o fundador paga a taxa");
-  if (!(await sim("enviar?"))) return;
+  console.log(fraco("     alternativa: recusar aqui leva ao facilitador do x402, no passo 5."));
+  if (!(await sim("enviar?"))) {
+    passo(5, "Enviar ao facilitador — o x402 liquida e patrocina a taxa");
+    if (!(await sim("enviar?"))) return;
+
+    let transacao;
+    try {
+      transacao = await transacaoParaX402({ conta: info.account, ativo, para, valor, entradas });
+    } catch (e) {
+      console.log(erro(`     não deu para montar a transação: ${e.message.slice(0, 140)}`));
+      return;
+    }
+
+    const fim = await liquidar({ transacao, exige });
+    console.log(`     HTTP ${fim.status === 200 ? ok("200 OK") : alerta(fim.status)}`);
+    console.log(fraco(`     ${fim.corpo.slice(0, 400)}`));
+    if (fim.resposta) {
+      try {
+        console.log(fraco(`     ${Buffer.from(fim.resposta, "base64").toString("utf8").slice(0, 300)}`));
+      } catch {
+        /* resposta ilegível não interrompe o roteiro */
+      }
+    }
+
+    passo(6, "Concluído");
+    if (fim.status === 200) {
+      console.log(ok(`     ${agente.nome} comprou o recurso pagando por x402.`));
+      console.log(fraco("     a procuração decidiu, o facilitador liquidou e patrocinou a taxa."));
+    } else {
+      console.log(alerta("     o vendedor não liberou o recurso — veja a resposta acima."));
+    }
+    return;
+  }
 
   if (!process.env.SPONSOR_SECRET) {
     console.log(erro("     sem SPONSOR_SECRET: é a chave de quem paga a taxa."));
@@ -469,18 +553,10 @@ async function rodada() {
   console.log(fraco(`     https://stellar.expert/explorer/testnet/tx/${liquidado.hash}`));
 
   // 5 ────────────────────────────────────────────────────────────────────────
-  passo(5, "Enviar ao facilitador — apresentar a prova ao vendedor");
-  if (!(await sim("enviar?"))) return;
-
-  try {
-    const fim = await liquidar({ hash: liquidado.hash, exige });
-    console.log(`     HTTP ${fim.status === 200 ? ok("200 OK") : alerta(fim.status)}`);
-    console.log(fraco(`     ${fim.corpo.slice(0, 400)}`));
-  } catch (e) {
-    console.log(alerta("     sem vendedor no ar, não há a quem apresentar a prova."));
-    console.log(fraco(`     ${e.message}`));
-    console.log(fraco(`     o pagamento está liquidado na rede: ${liquidado.hash}`));
-  }
+  passo(5, "Facilitador");
+  console.log(alerta("     nada a liquidar: o patrocinador já pagou, e a autorização foi consumida."));
+  console.log(fraco("     as duas rotas cobrem o mesmo pagamento — recusar o passo 4 usa o x402."));
+  console.log(fraco(`     comprovante on-chain: ${liquidado.hash}`));
 
   // 6 ────────────────────────────────────────────────────────────────────────
   passo(6, "Concluído");

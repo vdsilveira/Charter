@@ -23,7 +23,14 @@ if (!process.env.OZ_API_KEY) {
   );
 }
 if (!process.env.STELLAR_RECIPIENT) {
-  throw new Error("STELLAR_RECIPIENT é obrigatória: conta G… que recebe, com trustline de USDC.");
+  throw new Error("STELLAR_RECIPIENT é obrigatória: conta G… que recebe.");
+}
+if (!process.env.PAYMENT_ASSET) {
+  throw new Error(
+    "PAYMENT_ASSET é obrigatória: o contrato do ativo cobrado. Para XLM, o SAC " +
+      "nativo — o mesmo que a procuração do agente tem como alvo, senão a " +
+      "policy recusa por contrato-alvo antes de qualquer outra coisa.",
+  );
 }
 
 const facilitator = new HTTPFacilitatorClient({
@@ -47,8 +54,16 @@ app.use(
       "GET /market-data": {
         accepts: {
           scheme: "exact",
-          price: "$0.001",
           network: NETWORK,
+          // Preço como objeto, não como "$0.001": a forma em dólar faz a
+          // biblioteca converter para USDC, e aqui quem paga é a conta
+          // corporativa com XLM — o mesmo ativo que a procuração do agente tem
+          // como alvo. Ativo diferente seria recusado pela policy antes de
+          // qualquer outra checagem.
+          price: {
+            amount: process.env.PAYMENT_AMOUNT ?? "1000000",
+            asset: process.env.PAYMENT_ASSET,
+          },
           // Conta clássica que recebe — não o contrato do SAC.
           payTo: process.env.STELLAR_RECIPIENT,
         },

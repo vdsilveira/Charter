@@ -41,6 +41,18 @@ describe("leitura do .env.demo", () => {
     expect(parseEnv("CHARTER_CONTEXT_RULE_ID = 1")).toEqual({ CHARTER_CONTEXT_RULE_ID: "1" });
   });
 
+  it("tira aspas em volta do valor", () => {
+    // O `source` do bash tira; um leitor ingênuo mantém. A divergência produz
+    // um 401 do facilitador com a chave certa no arquivo — foi exatamente isso
+    // que aconteceu, e o sintoma não menciona aspas em lugar nenhum.
+    expect(parseEnv('K="valor"')).toEqual({ K: "valor" });
+    expect(parseEnv("K='valor'")).toEqual({ K: "valor" });
+  });
+
+  it("aspas só no meio do valor são preservadas", () => {
+    expect(parseEnv('K=a"b')).toEqual({ K: 'a"b' });
+  });
+
   it("arquivo vazio não é erro — é ausência", () => {
     expect(parseEnv("")).toEqual({});
   });

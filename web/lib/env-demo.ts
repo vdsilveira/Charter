@@ -27,7 +27,12 @@ export function parseEnv(texto: string): Record<string, string> {
     // Nome que não parece variável de ambiente é lixo de append, não config.
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(chave)) continue;
 
-    saida[chave] = limpa.slice(corte + 1).trim();
+    // Aspas em volta são convenção de shell, não parte do valor. O `source` do
+    // bash as remove; manter aqui faz o valor divergir entre quem carrega por
+    // shell e quem carrega por código — e o sintoma aparece longe da causa.
+    const valor = limpa.slice(corte + 1).trim();
+    const aspas = valor.length > 1 && valor[0] === valor.at(-1) && (valor[0] === '"' || valor[0] === "'");
+    saida[chave] = aspas ? valor.slice(1, -1) : valor;
   }
 
   return saida;

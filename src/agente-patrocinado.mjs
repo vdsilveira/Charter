@@ -28,7 +28,12 @@ for (const arquivo of [".env.demo"]) {
   try {
     for (const linha of readFileSync(new URL(arquivo, raiz), "utf8").split("\n")) {
       const i = linha.indexOf("=");
-      if (i > 0) process.env[linha.slice(0, i).trim()] ??= linha.slice(i + 1).trim();
+      // Aspas em volta são convenção de shell, não parte do valor.
+      if (i > 0) {
+        const v = linha.slice(i + 1).trim();
+        const nu = v.length > 1 && v[0] === v.at(-1) && (v[0] === '"' || v[0] === "'") ? v.slice(1, -1) : v;
+        process.env[linha.slice(0, i).trim()] ??= nu;
+      }
     }
   } catch {
     /* em container as chaves vêm do ambiente */
