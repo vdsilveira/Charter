@@ -82,7 +82,7 @@ function titulo() {
   console.log();
   console.log(forte(`╔${linha}╗`));
   console.log(forte("║") + forte("            C H A R T E R   S I M U L A T I O N           ") + forte("║"));
-  console.log(forte("║") + fraco("       procuração programável · x402 · Stellar testnet     ") + forte("║"));
+  console.log(forte("║") + fraco("        programmable power of attorney · x402 · testnet    ") + forte("║"));
   console.log(forte(`╚${linha}╝`));
   console.log();
 }
@@ -128,7 +128,7 @@ async function regraDo(conta, rotulo) {
       /* id inexistente: segue */
     }
   }
-  throw new Error(`nenhuma procuração chamada "${rotulo}" na conta ${conta}`);
+  throw new Error(`no power of attorney named "${rotulo}" in account ${conta}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ function exigenciaLocal() {
       readFileSync(new URL("deployments/identity-testnet.json", raiz), "utf8"),
     ).supplier,
     maxAmountRequired: process.env.SIM_VALOR ?? "1000000",
-    description: "ensaio local — nenhum vendedor envolvido",
+    description: "local rehearsal — no seller involved",
   };
 }
 
@@ -307,10 +307,10 @@ async function conferir({ conta, ativo, para, valor, entradas }) {
   const codigo = /Error\(Contract, #(\d+)\)/.exec(sim.error)?.[1];
   return (
     {
-      4002: "função fora do escopo da procuração (4002)",
-      4003: "contraparte sem claim KYB acima do limiar (4003)",
-      4006: "passaria do teto acumulado da procuração (4006)",
-      3221: "acima da cota do período (3221)",
+      4002: "function outside the agent's scope (4002)",
+      4003: "counterparty has no KYB claim, and the amount is above the threshold (4003)",
+      4006: "would pass the lifetime cap of the power of attorney (4006)",
+      3221: "above the agent's quota for the period (3221)",
     }[codigo] ?? sim.error.split("\n")[0]
   );
 }
@@ -396,61 +396,61 @@ const sim = async (p) => /^s|^y/i.test((await perguntar(`     ${p} ${fraco("(y/N
 
 async function rodada() {
   // 1 ────────────────────────────────────────────────────────────────────────
-  passo(1, "Escolher agente");
+  passo(1, "Choose an agent");
 
   const info = await ler(process.env.CHARTER_REGISTRY, "org_of", xdr.ScVal.scvSymbol(ORG));
   const agentes = info.agents.map((nome) => ({ nome: String(nome), segredo: chaveDe(String(nome)) }));
 
   agentes.forEach((a, i) => {
-    const estado = a.segredo ? ok("chave carregada") : erro(`falta AGENT_${a.nome.toUpperCase()}_SECRET`);
+    const estado = a.segredo ? ok("key loaded") : erro(`missing AGENT_${a.nome.toUpperCase()}_SECRET`);
     console.log(`     [${i + 1}] ${a.nome.padEnd(12)} ${estado}`);
   });
 
-  const escolha = Number((await perguntar("\n     agente: ")).trim());
+  const escolha = Number((await perguntar("\n     agent: ")).trim());
   const agente = agentes[escolha - 1];
-  if (!agente) return console.log(erro("\n     escolha inválida."));
+  if (!agente) return console.log(erro("\n     invalid choice."));
   if (!agente.segredo) {
-    return console.log(erro("\n     sem a chave dele, não há o que assinar."));
+    return console.log(erro("\n     without its key there is nothing to sign."));
   }
 
   const ruleId = await regraDo(info.account, agente.nome);
 
-  item("organização", ORG);
-  item("conta corporativa", info.account);
-  item("procuração", `regra ${ruleId} — ${agente.nome}`);
+  item("organization", ORG);
+  item("corporate account", info.account);
+  item("power of attorney", `rule ${ruleId} — ${agente.nome}`);
 
   // 2 ────────────────────────────────────────────────────────────────────────
-  passo(2, "Executar x402 — pedir o recurso e receber a cobrança");
-  if (!(await sim("chamar o vendedor?"))) return;
+  passo(2, "Run x402 — request the resource and get charged");
+  if (!(await sim("call the seller?"))) return;
 
   let resposta;
   try {
     resposta = await pedirRecurso();
   } catch (e) {
-    console.log(erro(`     não deu para falar com ${RECURSO}`));
+    console.log(erro(`     could not reach ${RECURSO}`));
     console.log(fraco(`     ${e.message}`));
-    console.log(alerta("     suba o vendedor com: pnpm x402:server (exige OZ_API_KEY)"));
+    console.log(alerta("     start it with: pnpm x402:server (needs OZ_API_KEY)"));
     console.log();
 
     // O x402 é a embalagem; a tese está nos passos 3 e 4 — o agente assina, o
     // patrocinador paga, a procuração decide. Ensaiar essa parte sem vendedor é
     // legítimo desde que fique dito: a exigência abaixo é **nossa**, não veio
     // de ninguém cobrando.
-    if (!(await sim("ensaiar com uma exigência local? (nada vem do vendedor)"))) return;
+    if (!(await sim("rehearse with a local requirement? (nothing comes from a seller)"))) return;
     resposta = { status: 402, json: { accepts: [exigenciaLocal()] }, cru: "" };
-    console.log(alerta("     ENSAIO — exigência montada aqui, sem vendedor no circuito"));
+    console.log(alerta("     REHEARSAL — requirement built here, no seller involved"));
   }
 
   console.log(`     HTTP ${resposta.status === 402 ? alerta("402 Payment Required") : resposta.status}`);
   const exige = exigencia(resposta.json);
   if (resposta.status !== 402 || !exige) {
-    console.log(erro("     o vendedor não pediu pagamento; nada a assinar."));
+    console.log(erro("     the seller did not ask for payment; nothing to sign."));
     console.log(fraco(`     ${resposta.cru.slice(0, 300)}`));
     return;
   }
 
   console.log();
-  console.log(fraco("     payload de payment-required:"));
+  console.log(fraco("     payment-required payload:"));
   console.log(
     fraco(
       JSON.stringify(exige, null, 2)
@@ -465,13 +465,13 @@ async function rodada() {
   const valor = String(exige.maxAmountRequired ?? exige.amount ?? "0");
 
   // 3 ────────────────────────────────────────────────────────────────────────
-  passo(3, `Assinar com a carteira de ${agente.nome}`);
-  item("ativo", ativo);
-  item("destinatário", para);
-  item("valor", valor);
+  passo(3, `Sign with ${agente.nome}\u2019s wallet`);
+  item("asset", ativo);
+  item("recipient", para);
+  item("amount", valor);
 
-  if (!(await sim("assinar?"))) {
-    console.log(fraco("\n     nada assinado. voltando ao início."));
+  if (!(await sim("sign?"))) {
+    console.log(fraco("\n     nothing signed. back to the start."));
     return;
   }
 
@@ -487,20 +487,20 @@ async function rodada() {
       maxTimeoutSeconds: exige.maxTimeoutSeconds,
     });
   } catch (e) {
-    console.log(erro(`     a rede recusaria antes da assinatura: ${e.message}`));
+    console.log(erro(`     the network would refuse before signing: ${e.message}`));
     return;
   }
 
-  console.log(ok(`     ${entradas.length} autorização assinada sob a regra ${ruleId}`));
+  console.log(ok(`     ${entradas.length} authorization signed under rule ${ruleId}`));
   console.log(fraco(`     ${entradas[0].slice(0, 72)}…`));
 
   const motivo = await conferir({ conta: info.account, ativo, para, valor, entradas });
   if (motivo) {
-    console.log(erro(`     a procuração recusa: ${motivo}`));
-    console.log(fraco("     nada foi enviado — o patrocinador não paga por transação que reverte."));
+    console.log(erro(`     the power of attorney refuses: ${motivo}`));
+    console.log(fraco("     nothing was sent — the sponsor does not pay for a transaction that reverts."));
     return;
   }
-  console.log(ok("     conferido: a procuração permite esta operação"));
+  console.log(ok("     checked: the power of attorney allows this operation"));
 
   // 4 ────────────────────────────────────────────────────────────────────────
   //
@@ -508,17 +508,17 @@ async function rodada() {
   // consome a autorização. O patrocinador é o desenho do Charter — o fundador
   // paga pelo agente. O facilitador é o desenho do x402, e ele também
   // patrocina (`areFeesSponsored: true`).
-  passo(4, "Enviar ao patrocinador — o fundador paga a taxa");
-  console.log(fraco("     alternativa: recusar aqui leva ao facilitador do x402, no passo 5."));
-  if (!(await sim("enviar?"))) {
-    passo(5, "Enviar ao facilitador — o x402 liquida e patrocina a taxa");
-    if (!(await sim("enviar?"))) return;
+  passo(4, "Send to the sponsor — the founder pays the fee");
+  console.log(fraco("     alternative: declining here goes to the x402 facilitator, in step 5."));
+  if (!(await sim("send?"))) {
+    passo(5, "Send to the facilitator — x402 settles and sponsors the fee");
+    if (!(await sim("send?"))) return;
 
     let transacao;
     try {
       transacao = await transacaoParaX402({ conta: info.account, ativo, para, valor, entradas });
     } catch (e) {
-      console.log(erro(`     não deu para montar a transação: ${e.message.slice(0, 140)}`));
+      console.log(erro(`     could not build the transaction: ${e.message.slice(0, 140)}`));
       return;
     }
 
@@ -533,18 +533,18 @@ async function rodada() {
       }
     }
 
-    passo(6, "Concluído");
+    passo(6, "Done");
     if (fim.status === 200) {
-      console.log(ok(`     ${agente.nome} comprou o recurso pagando por x402.`));
-      console.log(fraco("     a procuração decidiu, o facilitador liquidou e patrocinou a taxa."));
+      console.log(ok(`     ${agente.nome} bought the resource by paying over x402.`));
+      console.log(fraco("     the power of attorney decided; the facilitator settled and paid the fee."));
     } else {
-      console.log(alerta("     o vendedor não liberou o recurso — veja a resposta acima."));
+      console.log(alerta("     the seller did not release the resource — see the response above."));
     }
     return;
   }
 
   if (!process.env.SPONSOR_SECRET) {
-    console.log(erro("     sem SPONSOR_SECRET: é a chave de quem paga a taxa."));
+    console.log(erro("     no SPONSOR_SECRET: that is the key of whoever pays the fee."));
     return;
   }
 
@@ -552,41 +552,41 @@ async function rodada() {
   try {
     liquidado = await patrocinar({ conta: info.account, ativo, para, valor, entradas });
   } catch (e) {
-    console.log(erro(`     o patrocinador não conseguiu submeter: ${e.message.slice(0, 160)}`));
+    console.log(erro(`     the sponsor could not submit: ${e.message.slice(0, 160)}`));
     return;
   }
 
-  console.log(ok("     liquidado on-chain"));
+  console.log(ok("     settled on-chain"));
   item("hash", liquidado.hash);
-  item("taxa paga por", liquidado.patrocinador);
-  item("valor saiu de", info.account);
+  item("fee paid by", liquidado.patrocinador);
+  item("amount left", info.account);
   console.log(fraco(`     https://stellar.expert/explorer/testnet/tx/${liquidado.hash}`));
 
   // 5 ────────────────────────────────────────────────────────────────────────
-  passo(5, "Facilitador");
-  console.log(alerta("     nada a liquidar: o patrocinador já pagou, e a autorização foi consumida."));
-  console.log(fraco("     as duas rotas cobrem o mesmo pagamento — recusar o passo 4 usa o x402."));
-  console.log(fraco(`     comprovante on-chain: ${liquidado.hash}`));
+  passo(5, "Facilitator");
+  console.log(alerta("     nothing to settle: the sponsor already paid, and the authorization is spent."));
+  console.log(fraco("     both routes cover the same payment — decline step 4 to use x402."));
+  console.log(fraco(`     on-chain proof: ${liquidado.hash}`));
 
   // 6 ────────────────────────────────────────────────────────────────────────
-  passo(6, "Concluído");
-  console.log(ok(`     ${agente.nome} pagou pelo recurso sem nunca possuir XLM.`));
-  console.log(fraco("     a procuração decidiu, o patrocinador pagou, a rede registrou."));
+  passo(6, "Done");
+  console.log(ok(`     ${agente.nome} paid for the resource without ever holding XLM.`));
+  console.log(fraco("     the power of attorney decided, the sponsor paid, the network recorded it."));
 }
 
 titulo();
-console.log(fraco(`  vendedor    ${RECURSO}`));
-console.log(fraco(`  facilitador ${FACILITADOR}`));
-console.log(fraco(`  registro    ${process.env.CHARTER_REGISTRY ?? "(sem CHARTER_REGISTRY)"}`));
+console.log(fraco(`  seller      ${RECURSO}`));
+console.log(fraco(`  facilitator ${FACILITADOR}`));
+console.log(fraco(`  registry    ${process.env.CHARTER_REGISTRY ?? "(CHARTER_REGISTRY not set)"}`));
 
 try {
   for (;;) {
     await rodada();
     if (encerrado) break;
     console.log();
-    if (!(await sim("outra rodada?"))) break;
+    if (!(await sim("another round?"))) break;
   }
 } finally {
   rl.close();
-  console.log(fraco("\n  fim.\n"));
+  console.log(fraco("\n  done.\n"));
 }

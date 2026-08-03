@@ -1,4 +1,5 @@
 import CredencialAgente from "@/components/credencial-agente";
+import Conduta from "@/components/conduta";
 import { credencialDe, orgDe } from "@/lib/chain";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +52,14 @@ export default async function PaginaOrg({
           No agents found in this organization.
         </p>
       ) : (
-        credenciais.map((c) => <CredencialAgente key={c.label} credencial={c} />)
+        <>
+          {/* Antes das credenciais: quem abre esta página quer, primeiro, saber
+              se dá para negociar — e é a proporção atestada que responde. */}
+          <Conduta agentes={credenciais.map((c) => ({ label: c.label, conduct: c.conduct }))} />
+          {credenciais.map((c) => (
+            <CredencialAgente key={c.label} credencial={c} />
+          ))}
+        </>
       )}
 
       <footer className="border-t border-hairline pt-4 text-sm text-slate">
