@@ -51,8 +51,22 @@ export interface Resposta {
   assinatura: string;
 }
 
-/** Chave pública do administrador da plataforma — dona da stack de identidade. */
+/**
+ * Carteira autorizada a operar a área de administração.
+ *
+ * **Não** é a mesma coisa que a chave que assina na cadeia. `ADMIN_SECRET` é a
+ * autoridade do identity registry — foi com ela que a stack subiu
+ * (`--admin admin --manager admin`), e trocá-la faria o registro recusar as
+ * emissões. Já *quem pode pedir* uma emissão é uma conferência de endereço, e
+ * não precisa de chave nenhuma no servidor.
+ *
+ * `PLATFORM_ADMIN` separa os dois: o operador conecta a carteira dele no
+ * Freighter, e o servidor continua assinando com a sua. Sem a variável, cai na
+ * chave do servidor — que era o comportamento anterior.
+ */
 export function enderecoDoAdmin(): string {
+  const configurado = process.env.PLATFORM_ADMIN?.trim();
+  if (configurado) return configurado;
   return Keypair.fromSecret(env("ADMIN_SECRET")).publicKey();
 }
 

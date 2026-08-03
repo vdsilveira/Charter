@@ -11,7 +11,7 @@
  */
 import { readFileSync } from "node:fs";
 import { Keypair } from "@stellar/stellar-sdk";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { aplicarEnv } from "@/lib/env-demo";
 
 let admin: Keypair;
@@ -24,6 +24,9 @@ beforeAll(async () => {
 });
 
 beforeEach(() => mod.limparDesafios());
+// Os casos de configuração recarregam o módulo; limpar evita vazar para os
+// seguintes o administrador de um deles.
+afterEach(() => delete process.env.PLATFORM_ADMIN);
 
 const assinar = (kp: Keypair, nonce: string) =>
   kp.sign(Buffer.from(nonce, "utf8")).toString("base64");
@@ -119,5 +122,46 @@ describe("portão de administração", () => {
   it("dois desafios nunca colidem", () => {
     const vistos = new Set(Array.from({ length: 50 }, () => mod.criarDesafio()));
     expect(vistos.size).toBe(50);
+  });
+
+  it("o administrador da plataforma pode ser outra carteira que não a que assina", async () => {
+    // Dois papéis diferentes: quem **pode pedir** a emissão e qual chave
+    // **assina** na cadeia. A segunda vive no servidor por necessidade; a
+    // primeira é só uma conferência de endereço, e não precisa ser a mesma.
+    const outra = Keypair.random();
+    process.env.PLATFORM_ADMIN = outra.publicKey();
+    vi.resetModules();
+    const m = await import("@/lib/admin");
+
+    const nonce = m.criarDesafio();
+    expect(
+      m.conferirResposta({
+        nonce,
+        endereco: outra.publicKey(),
+        assinatura: assinar(outra, nonce),
+      }),
+    ).toBeNull();
+  });
+
+  it("configurado o administrador, a chave que assina deixa de servir de senha", async () => {
+    const outra = Keypair.random();
+    process.env.PLATFORM_ADMIN = outra.publicKey();
+    vi.resetModules();
+    const m = await import("@/lib/admin");
+
+    const nonce = m.criarDesafio();
+    // Quem tem `ADMIN_SECRET` já assina tudo na cadeia; o que ele não deve
+    // ganhar de graça é a tela.
+    expect(
+      m.conferirResposta({ nonce, endereco: admin.publicKey(), assinatura: assinar(admin, nonce) }),
+    ).toMatch(/not the platform administrator/i);
+  });
+
+  it("sem configuração, cai na chave do servidor", async () => {
+    delete process.env.PLATFORM_ADMIN;
+    vi.resetModules();
+    const m = await import("@/lib/admin");
+
+    expect(m.enderecoDoAdmin()).toBe(admin.publicKey());
   });
 });

@@ -281,6 +281,17 @@ errada gera uma emissão válida para o endereço errado, com o selo continuando
 negativo sem dizer por quê. O que vai para a cadeia é sempre o endereço
 resolvido, nunca o apelido.
 
+**Quem pode abrir a tela ≠ qual chave assina.** `ADMIN_SECRET` é a autoridade
+on-chain do identity registry — a stack subiu com `--admin admin --manager
+admin`, e trocá-la faria o registro recusar as emissões. Já *quem pode pedir*
+uma emissão é conferência de endereço, sem chave no servidor. `PLATFORM_ADMIN`
+separa os dois: definida, o portão passa a exigir aquela carteira; ausente, cai
+na chave do servidor, que é o comportamento de antes.
+
+Enquanto ela não for definida, operar `/admin` exige ter `ADMIN_SECRET` na
+carteira — o que na testnet é aceitável e em produção não seria: essa chave é
+também deployer, patrocinador e fundadora da `alphafund`.
+
 **O portão.** Endereço declarado não prova nada — o cliente manda o que quiser.
 `GET /api/admin/desafio` emite um nonce, a carteira assina com `signMessage`, e
 `POST /api/admin/kyb` confere a assinatura contra a chave do admin antes de ler
