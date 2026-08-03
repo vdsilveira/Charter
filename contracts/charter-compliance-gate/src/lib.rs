@@ -58,6 +58,8 @@ pub enum GateError {
     UnsupportedInvocation = 4004,
     /// Nenhum signer autenticado.
     NoSigners = 4005,
+    /// A operação levaria o agente acima do teto acumulado da procuração.
+    CapExceeded = 4006,
 }
 
 #[contractevent]
@@ -126,6 +128,16 @@ impl Policy for ComplianceGate {
         }
 
         let mut stats = load_stats(e, &smart_account, context_rule.id);
+
+        // Teto acumulado: é o que limita o estrago de um agente comprometido.
+        // `kyb_threshold` diz de quem se exige identidade; isto diz quanto se
+        // pode mover, somando tudo o que já se moveu.
+        if let Some(teto) = params.max_volume {
+            if stats.volume_total + amount > teto {
+                panic_with_error!(e, GateError::CapExceeded);
+            }
+        }
+
         stats.ops_ok += 1;
         stats.volume_total += amount;
         if verified {
@@ -174,8 +186,41 @@ impl Policy for ComplianceGate {
     }
 }
 
+/// Quem administra a conta corporativa. A conta responde por si mesma.
+#[contractclient(name = "ContaClient")]
+pub trait ContaComGestor {
+    fn gestor(e: &Env) -> Address;
+}
+
 #[contractimpl]
 impl ComplianceGate {
+    /// Altera o teto acumulado de uma procuração.
+    ///
+    /// A autorização vem do **gestor da conta** — o registro que a implantou —,
+    /// e o gate descobre quem é perguntando à própria conta. Contrato para
+    /// contrato: o registro é o chamador direto, e nada disso passa pelo
+    /// `__check_auth`, que é o caminho que a rede recusa.
+    ///
+    /// Quem decide continua sendo o fundador: o registro exige a assinatura
+    /// dele na raiz antes de chegar aqui.
+    pub fn set_max_volume(
+        e: &Env,
+        context_rule_id: u32,
+        smart_account: Address,
+        max_volume: Option<i128>,
+    ) {
+        ContaClient::new(e, &smart_account).gestor().require_auth();
+
+        let key = GateStorageKey::Params(smart_account.clone(), context_rule_id);
+        let mut params: GateParams = match e.storage().persistent().get(&key) {
+            Some(p) => p,
+            None => panic_with_error!(e, GateError::NotInstalled),
+        };
+
+        params.max_volume = max_volume;
+        e.storage().persistent().set(&key, &params);
+    }
+
     /// Conduta acumulada do agente — lida pela contraparte e pelo console.
     pub fn get_stats(e: &Env, context_rule_id: u32, smart_account: Address) -> AgentStats {
         load_stats(e, &smart_account, context_rule_id)

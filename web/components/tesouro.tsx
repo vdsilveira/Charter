@@ -14,6 +14,37 @@ async function lerSaldoPadrao(org: string): Promise<string> {
   return b.saldo;
 }
 
+/** Fluxo comum das escritas: monta no servidor, assina na carteira, envia. */
+async function assinarMontagem(url: string, corpo: unknown, endereco: string) {
+  const montagem = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(corpo),
+  });
+  const { xdr, error } = await montagem.json();
+  if (!montagem.ok) throw new Error(error ?? "could not build the transaction");
+
+  return assinarEEnviar({
+    xdr,
+    endereco,
+    enviar: async (assinada) => {
+      const envio = await fetch("/api/tx", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ xdr: assinada }),
+      });
+      const c = await envio.json();
+      if (!envio.ok) throw new Error(c?.error ?? "the network refused the transaction");
+      return c as { hash: string };
+    },
+  });
+}
+
+function sacarPadrao(org: string) {
+  return (valor: string, para: string) =>
+    assinarMontagem("/api/saque", { org, para, valor, fundador: para }, para);
+}
+
 /** Monta no servidor, assina na carteira, envia. */
 function aportarPadrao(org: string) {
   return async (valor: string, de: string) => {
@@ -58,13 +89,16 @@ export default function Tesouro({
   api,
   lerSaldo = lerSaldoPadrao,
   aportar,
+  sacar,
 }: {
   org: string;
   api?: FreighterApi;
   lerSaldo?: (org: string) => Promise<string>;
   aportar?: (valor: string, de: string) => Promise<{ hash: string }>;
+  sacar?: (valor: string, para: string) => Promise<{ hash: string }>;
 }) {
   const enviar = aportar ?? aportarPadrao(org);
+  const retirar = sacar ?? sacarPadrao(org);
 
   const [carteira, setCarteira] = useState<string | null>(null);
   const [saldo, setSaldo] = useState<string | null>(null);
@@ -72,6 +106,7 @@ export default function Tesouro({
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [feito, setFeito] = useState<string | null>(null);
+  const [sacando, setSacando] = useState(false);
 
   const recarregar = useCallback(async () => {
     try {
@@ -98,14 +133,13 @@ export default function Tesouro({
     };
   }, [api, recarregar]);
 
-  async function adicionar() {
+  /** Aporte e saque compartilham validação, conversão e releitura. */
+  async function mover(qual: "aporte" | "saque") {
     setErro(null);
     setFeito(null);
 
     let stroops: string;
     try {
-      // Converte antes de qualquer coisa: valor inválido não deve chegar à
-      // carteira nem gastar uma montagem no servidor.
       stroops = paraStroops(quanto);
     } catch (e) {
       setErro(String((e as Error).message));
@@ -117,19 +151,20 @@ export default function Tesouro({
       return;
     }
 
-    setOcupado(true);
+    const marcar = qual === "saque" ? setSacando : setOcupado;
+    marcar(true);
     try {
-      const { hash } = await enviar(stroops, carteira);
+      const { hash } = qual === "saque" ? await retirar(stroops, carteira) : await enviar(stroops, carteira);
       setFeito(hash);
       setQuanto("");
-      // Sem reler, o operador aporta de novo achando que não funcionou.
       await recarregar();
     } catch (e) {
       setErro(String((e as Error)?.message ?? e));
     } finally {
-      setOcupado(false);
+      marcar(false);
     }
   }
+
 
   const vazio = saldo !== null && BigInt(saldo) === 0n;
 
@@ -165,8 +200,13 @@ export default function Tesouro({
               inputMode="decimal"
             />
           </label>
-          <Button onClick={adicionar} disabled={ocupado}>
+          <Button onClick={() => mover("aporte")} disabled={ocupado || sacando}>
             {ocupado ? "Waiting for wallet…" : "Add funds"}
+          </Button>
+          {/* O saque volta para a carteira conectada — o dinheiro é do
+              fundador, e uma organização sem saída deixaria o saldo preso. */}
+          <Button variant="outline" onClick={() => mover("saque")} disabled={ocupado || sacando}>
+            {sacando ? "Waiting for wallet…" : "Withdraw"}
           </Button>
         </div>
 

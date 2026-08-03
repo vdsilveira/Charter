@@ -120,6 +120,8 @@ fn params(e: &Env, registry: &Address, threshold: i128, fns: &[Symbol]) -> GateP
         identity_registry: registry.clone(),
         claim_topic: 1,
         agent_label: symbol_short!("trader"),
+        // Sem teto por padrão; os casos de teto montam o seu.
+        max_volume: None,
     }
 }
 
@@ -361,4 +363,85 @@ fn extract_transfer_returns_none_for_other_shapes() {
 
         assert!(extract_transfer(&f.e, &cc).is_none());
     });
+}
+
+
+// ---------------------------------------------------------------------------
+// Teto acumulado
+//
+// `kyb_threshold` diz **de quem** se exige identidade; o teto diz **quanto** se
+// pode mover, somando tudo o que já se moveu. Sem ele, uma procuração válida
+// drena o tesouro em operações individualmente irrepreensíveis.
+// ---------------------------------------------------------------------------
+
+/** Instala com teto acumulado além do limiar de KYB. */
+fn install_com_teto(f: &Fixture, teto: Option<i128>) -> ContextRule {
+    f.e.as_contract(&f.host, || {
+        let r = rule(&f.e, &f.token);
+        let mut p = params(&f.e, &f.registry, 500, &[symbol_short!("transfer")]);
+        p.max_volume = teto;
+        ComplianceGate::install(&f.e, p, r.clone(), f.sa.clone());
+        r
+    })
+}
+
+fn mover(f: &Fixture, r: &ContextRule, quanto: i128) {
+    let destino = Address::generate(&f.e);
+    set_verified(f, &destino, true);
+    enforce(f, r, transfer_ctx(&f.e, &f.token, &destino, quanto), signers(&f.e));
+}
+
+#[test]
+fn dentro_do_teto_acumulado_passa() {
+    let f = setup();
+    let r = install_com_teto(&f, Some(1000));
+
+    mover(&f, &r, 400);
+    mover(&f, &r, 400);
+
+    assert_eq!(stats(&f, &r).volume_total, 800);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #4006)")]
+fn a_soma_acima_do_teto_e_recusada() {
+    let f = setup();
+    let r = install_com_teto(&f, Some(1000));
+
+    mover(&f, &r, 900);
+    // Sozinha esta caberia. Somada à anterior, não — é o ponto do teto
+    // acumulado, e o que um limite por transação não pega.
+    mover(&f, &r, 200);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #4006)")]
+fn teto_zero_impede_qualquer_movimento() {
+    let f = setup();
+    let r = install_com_teto(&f, Some(0));
+    mover(&f, &r, 1);
+}
+
+#[test]
+fn sem_teto_nao_limita() {
+    let f = setup();
+    // `None` é o que as procurações antigas são, e continuam sendo.
+    let r = install_com_teto(&f, None);
+
+    mover(&f, &r, 1_000_000);
+    assert_eq!(stats(&f, &r).volume_total, 1_000_000);
+}
+
+#[test]
+fn o_teto_recusado_nao_conta_como_operacao() {
+    let f = setup();
+    let r = install_com_teto(&f, Some(500));
+
+    mover(&f, &r, 500);
+    let antes = stats(&f, &r);
+
+    // A recusa reverte a transação inteira: a tentativa não entra na conduta,
+    // e a credencial não infla com operações que a rede não deixou passar.
+    assert_eq!(antes.ops_ok, 1);
+    assert_eq!(antes.volume_total, 500);
 }

@@ -184,6 +184,13 @@ export interface AgenteEntrada {
   carteira: string;
   allowedFns: string[];
   kybThreshold: string;
+  /**
+   * Teto acumulado em stroops; vazio ou ausente é sem teto.
+   *
+   * `kybThreshold` diz de quem se exige identidade; isto diz quanto se pode
+   * mover somando tudo — é o que limita o estrago de um agente comprometido.
+   */
+  maxVolume?: string;
 }
 
 /** `GateParams` — chaves em ordem alfabética, como todo struct em Soroban. */
@@ -194,6 +201,8 @@ function gateParams(a: AgenteEntrada, identityVerifier: string, claimTopic: numb
     entry("claim_topic", xdr.ScVal.scvU32(claimTopic)),
     entry("identity_registry", addr(identityVerifier)),
     entry("kyb_threshold", i128(a.kybThreshold || "0")),
+    // Chaves em ordem alfabética: `max_volume` vem depois de `kyb_threshold`.
+    entry("max_volume", a.maxVolume?.trim() ? i128(a.maxVolume) : xdr.ScVal.scvVoid()),
   ]);
 }
 
@@ -386,6 +395,77 @@ export async function montarAporte({
       contract: env("CHARTER_TARGET"),
       function: "transfer",
       args: [addr(de), addr(account), i128(valor)],
+    }),
+  );
+}
+
+/**
+ * Monta a alteração do teto acumulado de um agente.
+ *
+ * `null` remove o teto. Afrouxar é decisão do fundador, e o contrato não a
+ * impede — o que ele garante é que só ele decide.
+ */
+export async function montarLimiteAgente({
+  org,
+  label,
+  teto,
+  fundador,
+}: {
+  org: string;
+  label: string;
+  /** Em stroops; `null` para sem teto. */
+  teto: string | null;
+  fundador: string;
+}) {
+  if (teto !== null && (!/^\d+$/.test(teto) || BigInt(teto) < 0n)) {
+    throw new Error("Cap must be a non-negative integer in stroops, or empty for no cap.");
+  }
+
+  return prepararParaAssinatura(
+    fundador,
+    Operation.invokeContractFunction({
+      contract: env("CHARTER_REGISTRY"),
+      function: "set_agent_limit",
+      args: [
+        sym(org),
+        sym(label),
+        teto === null ? xdr.ScVal.scvVoid() : i128(teto),
+      ],
+    }),
+  );
+}
+
+/**
+ * Monta o saque do tesouro para onde o fundador indicar.
+ *
+ * O dinheiro é dele; uma organização sem saída deixaria o saldo preso. Quem
+ * transfere é a **conta corporativa** — o registro só carrega a decisão.
+ */
+export async function montarSaque({
+  org,
+  para,
+  valor,
+  fundador,
+}: {
+  org: string;
+  para: string;
+  /** Em stroops. */
+  valor: string;
+  fundador: string;
+}) {
+  if (!StrKey.isValidEd25519PublicKey(para?.trim() ?? "")) {
+    throw new Error("Destination must be a Stellar address starting with G.");
+  }
+  if (!/^\d+$/.test(valor) || BigInt(valor) <= 0n) {
+    throw new Error("Amount must be a positive integer in stroops.");
+  }
+
+  return prepararParaAssinatura(
+    fundador,
+    Operation.invokeContractFunction({
+      contract: env("CHARTER_REGISTRY"),
+      function: "withdraw",
+      args: [sym(org), addr(env("CHARTER_TARGET")), addr(para.trim()), i128(valor)],
     }),
   );
 }

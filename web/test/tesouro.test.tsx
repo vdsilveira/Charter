@@ -127,4 +127,44 @@ describe("tesouro da organização", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/declined/i);
   });
+
+  it("saca de volta para a carteira conectada", async () => {
+    const user = userEvent.setup();
+    const sacar = vi.fn().mockResolvedValue({ hash: "abc" });
+    render(<Tesouro {...props({ sacar })} />);
+
+    await screen.findByText(/300 XLM/);
+    await user.type(screen.getByLabelText(/amount/i), "15");
+    await user.click(screen.getByRole("button", { name: /withdraw/i }));
+
+    // O dinheiro é do fundador: uma organização sem saída deixaria o saldo
+    // preso para sempre.
+    await waitFor(() => expect(sacar).toHaveBeenCalledWith("150000000", CARTEIRA));
+  });
+
+  it("saque relê o saldo", async () => {
+    const user = userEvent.setup();
+    const lerSaldo = vi.fn().mockResolvedValueOnce("3000000000").mockResolvedValueOnce("1500000000");
+    const sacar = vi.fn().mockResolvedValue({ hash: "abc" });
+    render(<Tesouro {...props({ lerSaldo, sacar })} />);
+
+    await screen.findByText(/300 XLM/);
+    await user.type(screen.getByLabelText(/amount/i), "150");
+    await user.click(screen.getByRole("button", { name: /withdraw/i }));
+
+    expect(await screen.findByText(/150 XLM/)).toBeInTheDocument();
+  });
+
+  it("saque com valor inválido não sai", async () => {
+    const user = userEvent.setup();
+    const sacar = vi.fn();
+    render(<Tesouro {...props({ sacar })} />);
+
+    await screen.findByText(/300 XLM/);
+    await user.type(screen.getByLabelText(/amount/i), "-5");
+    await user.click(screen.getByRole("button", { name: /withdraw/i }));
+
+    expect(sacar).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(/positive/i);
+  });
 });

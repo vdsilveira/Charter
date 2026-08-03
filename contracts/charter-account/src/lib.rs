@@ -56,6 +56,11 @@ use stellar_accounts::smart_account::{
 
 pub use charter_types::AgentRule;
 
+#[soroban_sdk::contractclient(name = "TokenClient")]
+pub trait Token {
+    fn transfer(e: &Env, from: Address, to: Address, amount: i128);
+}
+
 /// Nome da regra do administrador. O `OrgRegistry` conta com ela na posição 0.
 pub const REGRA_ADMIN: &str = "admin";
 
@@ -129,6 +134,20 @@ impl CharterAccount {
     pub fn remover_regra(e: &Env, id: u32) {
         exigir_gestor(e);
         smart_account::remove_context_rule(e, id);
+    }
+
+    /// Retira valor do tesouro. Só o gestor chama.
+    ///
+    /// O fundador precisa de uma saída: o dinheiro é dele, e uma organização
+    /// encerrada não pode deixar o saldo preso. A regra do administrador é
+    /// escopada à própria conta de propósito e **não** serve para isto — ela
+    /// governa procurações, não move valor.
+    ///
+    /// Aqui não há `__check_auth` no caminho: a conta é quem chama o token, e
+    /// um contrato autoriza as próprias sub-invocações.
+    pub fn sacar(e: &Env, token: Address, para: Address, valor: i128) {
+        exigir_gestor(e);
+        TokenClient::new(e, &token).transfer(&e.current_contract_address(), &para, &valor);
     }
 
     /// Quem administra as procurações desta conta.

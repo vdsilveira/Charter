@@ -124,6 +124,49 @@ grafo seria o oposto do que compliance pede — resposta pronta para o Q&A.
 
 ---
 
+## Teto do agente e saque — redeploy de 03/08/2026 (2º)
+
+Duas coisas que faltavam para o fundador não ficar refém da própria organização.
+
+**Teto acumulado por agente** (`GateParams.max_volume`, `Option<i128>`).
+`kyb_threshold` diz **de quem** se exige identidade; nunca limitou valor. Sem
+teto, uma procuração válida drena o tesouro em operações individualmente
+irrepreensíveis. `None` é sem teto — o que as procurações antigas eram, e o
+padrão de quem não escolher. Recusa com **4006**.
+
+O teto é **alterável pelo fundador**: `OrgRegistry.set_agent_limit(name, label,
+Option<i128>)` exige `founder.require_auth()` na raiz e chama
+`ComplianceGate.set_max_volume`. O gate descobre quem pode mandar **perguntando
+à conta**: `ContaClient::gestor()` e então `require_auth()` nele. Contrato para
+contrato, sem `__check_auth` no caminho — o mesmo padrão que destravou
+add/remove.
+
+**Saque do tesouro.** `CharterAccount.sacar(token, para, valor)` autorizado pelo
+gestor, exposto como `OrgRegistry.withdraw(name, token, para, valor)` com auth do
+fundador. A conta é quem chama o token, e um contrato autoriza as próprias
+sub-invocações.
+
+Isto **muda a história de segurança** e vale dizer em voz alta: antes, a regra
+do administrador era escopada à própria conta justamente para que administrar
+não desse via livre ao tesouro. Agora o fundador tem uma saída. É correto — o
+dinheiro é dele, e uma organização sem saída deixaria o saldo preso —, mas
+significa que o fundador **pode** esvaziar o tesouro. Quem não é fundador,
+não.
+
+Provado na testnet:
+
+| Caso | Resultado |
+|---|---|
+| `set_agent_limit` para 10 XLM | teto passa de `null` para `100000000` |
+| agente move 6 XLM | liquida |
+| agente move mais 6 XLM (soma 12) | recusado com **4006** |
+| `withdraw` de 15 XLM | 500000000 → 350000000 |
+
+**Endereços novos** (o anterior fica órfão, e as organizações nele também):
+registro, gate e wasm da conta mudaram — ver `deployments/testnet.json`.
+
+---
+
 ## Tesouro da organização — o que confunde
 
 São **duas** coisas diferentes, e trocá-las custa tempo de depuração:

@@ -76,6 +76,7 @@ export default function PainelOrg({ org, api }: { org: string; api?: FreighterAp
           active: a.active,
           allowedFns: c?.policy?.allowedFns ?? [],
           kybThreshold: c?.policy?.kybThreshold ?? "0",
+          maxVolume: c?.policy?.maxVolume ?? null,
         };
       }),
     );
@@ -105,6 +106,18 @@ export default function PainelOrg({ org, api }: { org: string; api?: FreighterAp
     [org, fundador, assinarEEnviarMontagem],
   );
 
+  const limitar = useCallback(
+    async (label: string, teto: string | null) =>
+      assinarEEnviarMontagem(
+        await fetch("/api/limite", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ org, label, teto, fundador }),
+        }),
+      ),
+    [org, fundador, assinarEEnviarMontagem],
+  );
+
   return (
     <main className="mx-auto max-w-3xl space-y-5 px-6 py-10">
       <header>
@@ -128,7 +141,13 @@ export default function PainelOrg({ org, api }: { org: string; api?: FreighterAp
           transferência falha assim mesmo. */}
       <Tesouro org={org} api={api} />
 
-      <PainelAgentes org={org} carregar={carregar} adicionar={adicionar} remover={remover} />
+      <PainelAgentes
+        org={org}
+        carregar={carregar}
+        adicionar={adicionar}
+        remover={remover}
+        limitar={limitar}
+      />
     </main>
   );
 }

@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { traduzirErro } from "@/lib/errors";
+import { emXlm, paraStroops } from "@/lib/valores";
 
 export interface AgenteResumo {
   label: string;
   active: boolean;
   allowedFns: string[];
   kybThreshold: string;
+  /** Teto acumulado em stroops; ausente é sem teto. */
+  maxVolume?: string | null;
 }
 
 export interface NovoAgente {
@@ -37,11 +40,14 @@ export default function PainelAgentes({
   carregar,
   adicionar,
   remover,
+  limitar,
 }: {
   org: string;
   carregar: () => Promise<AgenteResumo[]>;
   adicionar?: (a: NovoAgente) => Promise<{ hash: string }>;
   remover?: (label: string) => Promise<{ hash: string }>;
+  /** Altera o teto acumulado. `null` remove o teto. */
+  limitar?: (label: string, teto: string | null) => Promise<{ hash: string }>;
 }) {
   const [agentes, setAgentes] = useState<AgenteResumo[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -49,6 +55,8 @@ export default function PainelAgentes({
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
+  const [ajustando, setAjustando] = useState<string | null>(null);
+  const [novoTeto, setNovoTeto] = useState("");
   const [label, setLabel] = useState("");
   const [carteira, setCarteira] = useState("");
   const [fns, setFns] = useState("transfer");
@@ -92,6 +100,23 @@ export default function PainelAgentes({
       setAbrindo(false);
       setLabel("");
       setCarteira("");
+      await recarregar();
+    } catch (e) {
+      setErro(traduzirErro(e));
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function confirmarTeto(alvo: string) {
+    setErro(null);
+    setOcupado(true);
+    try {
+      // Campo vazio remove o teto. Afrouxar é decisão do fundador, e a
+      // interface não a esconde atrás de um caminho separado.
+      await limitar?.(alvo, novoTeto.trim() ? paraStroops(novoTeto) : null);
+      setAjustando(null);
+      setNovoTeto("");
       await recarregar();
     } catch (e) {
       setErro(traduzirErro(e));
@@ -185,9 +210,34 @@ export default function PainelAgentes({
                       "moves no value — no function in scope"
                     )}
                   </p>
+                  {/* O teto é o que limita o estrago de um agente
+                      comprometido; o limiar de KYB não limita valor nenhum. */}
+                  <p className="text-sm text-slate">
+                    {a.maxVolume
+                      ? `lifetime cap ${emXlm(a.maxVolume)} XLM`
+                      : "no lifetime cap — this agent can move the whole treasury"}
+                  </p>
                 </div>
 
+                {a.active && ajustando === a.label && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Input
+                      value={novoTeto}
+                      onChange={(e) => setNovoTeto(e.target.value)}
+                      placeholder="XLM, empty = no cap"
+                      className="w-44"
+                    />
+                    <Button size="sm" onClick={() => confirmarTeto(a.label)} disabled={ocupado}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setAjustando(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+
                 {a.active &&
+                  ajustando !== a.label &&
                   (confirmando === a.label ? (
                     <div className="flex items-center gap-2 text-sm">
                       <span className="text-slate">Are you sure?</span>
@@ -199,9 +249,21 @@ export default function PainelAgentes({
                       </Button>
                     </div>
                   ) : (
-                    <Button size="sm" variant="ghost" onClick={() => setConfirmando(a.label)}>
-                      Remove
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setAjustando(a.label);
+                          setNovoTeto(a.maxVolume ? emXlm(a.maxVolume) : "");
+                        }}
+                      >
+                        Set cap
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirmando(a.label)}>
+                        Remove
+                      </Button>
+                    </div>
                   ))}
               </li>
             ))}

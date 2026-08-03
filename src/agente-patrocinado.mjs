@@ -41,6 +41,7 @@ const MOTIVOS = {
   4003: "a contraparte não está verificada — acima do limiar exige claim KYB (4003)",
   3221: "valor acima da cota do agente no período (3221)",
   3223: "a política não autoriza este tipo de operação (3223)",
+  4006: "operação passaria do teto acumulado da procuração (4006)",
 };
 
 const [org, ruleId, destinatario, valor] = process.argv.slice(2);
@@ -157,6 +158,7 @@ const veredito = await server.simulateTransaction(conferencia);
 if (rpc.Api.isSimulationError(veredito)) {
   const codigo = /Error\(Contract, #(\d+)\)/.exec(veredito.error)?.[1];
   console.error(`a rede recusaria: ${MOTIVOS[codigo] ?? veredito.error.split("\n")[0]}`);
+  if (!codigo && process.env.DEBUG_RECUSA) console.error(veredito.error.slice(0, 1200));
   process.exit(2);
 }
 console.log("conferido: a rede aprovaria esta operação");

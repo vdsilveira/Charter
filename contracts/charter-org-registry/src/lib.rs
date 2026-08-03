@@ -46,6 +46,8 @@ fn sem_poderes(e: &Env, label: &Symbol) -> GateParams {
         claim_topic: 0,
         identity_registry: e.current_contract_address(),
         kyb_threshold: 0,
+        // Teto zero, não "sem teto": um agente revogado não move nada.
+        max_volume: Some(0),
     }
 }
 
@@ -75,6 +77,13 @@ pub trait Token {
 pub trait ContaDaOrganizacao {
     fn adicionar_regra(e: &Env, agent: AgentRule) -> u32;
     fn remover_regra(e: &Env, id: u32);
+    fn sacar(e: &Env, token: Address, para: Address, valor: i128);
+}
+
+/// Alteração de teto no gate da procuração.
+#[contractclient(name = "GateAdminClient")]
+pub trait GateAdmin {
+    fn set_max_volume(e: &Env, context_rule_id: u32, smart_account: Address, max_volume: Option<i128>);
 }
 
 #[contracterror]
@@ -216,6 +225,37 @@ impl OrgRegistry {
 
         record.active = false;
         e.storage().persistent().set(&RegistryStorageKey::Agent(name, label), &record);
+    }
+
+    /// Altera o teto acumulado de um agente.
+    ///
+    /// Existe porque procuração sem teto é confiança sem limite: `kyb_threshold`
+    /// diz de quem se exige identidade, nunca quanto se pode mover. `None`
+    /// remove o teto — o fundador pode afrouxar, e é decisão dele.
+    pub fn set_agent_limit(e: &Env, name: Symbol, label: Symbol, max_volume: Option<i128>) {
+        let org = load_org(e, &name);
+        org.founder.require_auth();
+
+        let record = load_agent(e, &name, &label);
+        if !record.active {
+            panic_with_error!(e, RegistryError::AgentRevoked);
+        }
+
+        GateAdminClient::new(e, &record.gate).set_max_volume(
+            &record.context_rule_id,
+            &org.account,
+            &max_volume,
+        );
+    }
+
+    /// Retira valor do tesouro para onde o fundador indicar.
+    ///
+    /// O dinheiro é dele; uma organização sem saída deixaria o saldo preso.
+    pub fn withdraw(e: &Env, name: Symbol, token: Address, para: Address, valor: i128) {
+        let org = load_org(e, &name);
+        org.founder.require_auth();
+
+        AccountClient::new(e, &org.account).sacar(&token, &para, &valor);
     }
 
     /// Endereço que assina por este agente — a conta corporativa.

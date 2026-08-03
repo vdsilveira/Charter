@@ -46,6 +46,13 @@ pub struct GateParams {
     pub claim_topic: u32,
     /// Rótulo do agente, para atribuir as estatísticas.
     pub agent_label: Symbol,
+    /// Teto **acumulado** que este agente pode mover, em toda a sua vida.
+    ///
+    /// `None` é sem teto — que é o que as procurações antigas eram, e continua
+    /// sendo o padrão de quem não escolher. Existe para limitar o estrago de um
+    /// agente comprometido: `kyb_threshold` diz de quem se exige identidade,
+    /// nunca quanto se pode gastar.
+    pub max_volume: Option<i128>,
 }
 
 /// Conduta acumulada do agente. Escrita apenas no caminho aprovado — o de

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { emXlm } from "@/lib/valores";
 
 export interface Credencial {
   org: string;
@@ -12,6 +13,7 @@ export interface Credencial {
     kybThreshold: string;
     identityRegistry: string;
     claimTopic: number;
+    maxVolume?: string | null;
   };
   conduct: { opsOk: number; volumeTotal: string; volumeAttested: string; firstSeen: number };
 }
@@ -52,6 +54,10 @@ export default function CredencialAgente({ credencial: c }: { credencial: Creden
             </dd>
             <dt className="text-slate">requires KYB above</dt>
             <dd>{c.policy.kybThreshold}</dd>
+            {/* Teto é poder do agente: a contraparte que lê esta credencial
+                merece saber quanto ele ainda pode mover ao todo. */}
+            <dt className="text-slate">lifetime cap</dt>
+            <dd>{c.policy.maxVolume ? emXlm(c.policy.maxVolume) + " XLM" : "none"}</dd>
           </dl>
         </section>
 

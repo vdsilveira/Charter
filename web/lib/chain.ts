@@ -66,7 +66,14 @@ export interface Credencial {
   account: string;
   active: boolean;
   orgVerified: boolean;
-  policy: { allowedFns: string[]; kybThreshold: string; identityRegistry: string; claimTopic: number };
+  policy: {
+    allowedFns: string[];
+    kybThreshold: string;
+    identityRegistry: string;
+    claimTopic: number;
+    /** Teto acumulado em stroops; `null` é sem teto. */
+    maxVolume: string | null;
+  };
   conduct: { opsOk: number; volumeTotal: string; volumeAttested: string; firstSeen: number };
 }
 
@@ -83,6 +90,8 @@ export async function credencialDe(org: string, label: string): Promise<Credenci
       kybThreshold: String(c.params?.kyb_threshold ?? 0n),
       identityRegistry: String(c.params?.identity_registry ?? ""),
       claimTopic: Number(c.params?.claim_topic ?? 0),
+      // `null` é sem teto — diferente de zero, que impede qualquer movimento.
+      maxVolume: c.params?.max_volume == null ? null : String(c.params.max_volume),
     },
     conduct: {
       opsOk: Number(c.stats?.ops_ok ?? 0),

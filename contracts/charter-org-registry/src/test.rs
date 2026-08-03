@@ -39,6 +39,19 @@ impl MockGate {
     pub fn get_stats(_e: &Env, _context_rule_id: u32, _smart_account: Address) -> AgentStats {
         AgentStats { ops_ok: 7, volume_total: 700, volume_attested: 500, first_seen: 1 }
     }
+
+    /// Guarda o teto para o teste conferir que a alteração chegou.
+    pub fn set_max_volume(
+        e: &Env,
+        context_rule_id: u32,
+        smart_account: Address,
+        max_volume: Option<i128>,
+    ) {
+        let mut p: GateParams =
+            e.storage().instance().get(&(smart_account.clone(), context_rule_id)).unwrap();
+        p.max_volume = max_volume;
+        e.storage().instance().set(&(smart_account, context_rule_id), &p);
+    }
 }
 
 /// Mock do identity verifier: panica quando não verificado, como o da OZ.
@@ -79,6 +92,10 @@ impl MockToken {
 
     pub fn destino(e: &Env) -> Option<Address> {
         e.storage().instance().get(&symbol_short!("to"))
+    }
+
+    pub fn origem(e: &Env) -> Option<Address> {
+        e.storage().instance().get(&symbol_short!("from"))
     }
 }
 
@@ -136,6 +153,7 @@ fn params(f: &Fixture, label: Symbol) -> GateParams {
         identity_registry: f.verifier.clone(),
         claim_topic: 1,
         agent_label: label,
+        max_volume: None,
     }
 }
 
@@ -394,4 +412,81 @@ fn o_segundo_agente_mapeia_para_a_segunda_regra() {
     // escorregar, devolve-se a procuração do agente errado.
     let cred = client(&f).credentials_of(&name, &symbol_short!("auditor"));
     assert_eq!(cred.params.agent_label, symbol_short!("auditor"));
+}
+
+// ---------------------------------------------------------------------------
+// Teto do agente e saque do tesouro
+//
+// As duas coisas que faltavam para o fundador não ficar refém da própria
+// organização: limitar quanto um agente pode mover no total, e tirar de volta o
+// que sobrou.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn o_fundador_altera_o_teto_do_agente() {
+    let f = setup();
+    let nome = symbol_short!("acme");
+    let conta = create(&f, nome.clone(), &[("trader", Address::generate(&f.e))]);
+
+    client(&f).set_agent_limit(&nome, &symbol_short!("trader"), &Some(1_000));
+
+    assert_eq!(MockGateClient::new(&f.e, &f.gate).get_params(&1, &conta).max_volume, Some(1_000));
+}
+
+#[test]
+fn o_teto_pode_ser_removido_por_quem_o_pos() {
+    let f = setup();
+    let nome = symbol_short!("acme");
+    let conta = create(&f, nome.clone(), &[("trader", Address::generate(&f.e))]);
+
+    client(&f).set_agent_limit(&nome, &symbol_short!("trader"), &Some(1_000));
+    client(&f).set_agent_limit(&nome, &symbol_short!("trader"), &None);
+
+    // Afrouxar é decisão do fundador, e o contrato não a impede.
+    assert_eq!(MockGateClient::new(&f.e, &f.gate).get_params(&1, &conta).max_volume, None);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5003)")]
+fn nao_se_altera_teto_de_agente_revogado() {
+    let f = setup();
+    let nome = symbol_short!("acme");
+    create(&f, nome.clone(), &[("trader", Address::generate(&f.e))]);
+
+    client(&f).remove_agent(&nome, &symbol_short!("trader"));
+    // A procuração já não existe na conta: mexer no teto dela seria teatro.
+    client(&f).set_agent_limit(&nome, &symbol_short!("trader"), &Some(1));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5002)")]
+fn nao_se_altera_teto_de_agente_inexistente() {
+    let f = setup();
+    let nome = symbol_short!("acme");
+    create(&f, nome.clone(), &[("trader", Address::generate(&f.e))]);
+    client(&f).set_agent_limit(&nome, &symbol_short!("fantasma"), &Some(1));
+}
+
+#[test]
+fn o_fundador_saca_do_tesouro() {
+    let f = setup();
+    let nome = symbol_short!("acme");
+    let conta = create(&f, nome.clone(), &[("trader", Address::generate(&f.e))]);
+    let destino = Address::generate(&f.e);
+
+    client(&f).withdraw(&nome, &f.token, &destino, &400);
+
+    // O dinheiro é do fundador: uma organização sem saída deixaria o saldo
+    // preso para sempre. Quem transfere é a **conta**, não o registro.
+    let token = MockTokenClient::new(&f.e, &f.token);
+    assert_eq!(token.cobrado(), 400);
+    assert_eq!(token.destino(), Some(destino));
+    assert_eq!(token.origem(), Some(conta));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5001)")]
+fn nao_se_saca_de_organizacao_inexistente() {
+    let f = setup();
+    client(&f).withdraw(&symbol_short!("fantasma"), &f.token, &f.founder, &1);
 }
