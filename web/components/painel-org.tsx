@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import PainelAgentes, { type AgenteResumo, type NovoAgente } from "@/components/painel-agentes";
 import Tesouro from "@/components/tesouro";
+import Feed, { type Decisao } from "@/components/feed";
+import Leaderboard, { type LinhaAgente } from "@/components/leaderboard";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { assinarEEnviar, freighter, type FreighterApi } from "@/lib/carteira";
 
 /**
@@ -118,6 +121,20 @@ export default function PainelOrg({ org, api }: { org: string; api?: FreighterAp
     [org, fundador, assinarEEnviarMontagem],
   );
 
+  const carregarFeed = useCallback(async (): Promise<Decisao[]> => {
+    const r = await fetch(`/api/feed?org=${encodeURIComponent(org)}`);
+    const b = await r.json();
+    if (!r.ok) throw new Error(b?.error ?? "could not read the operations");
+    return b.decisions;
+  }, [org]);
+
+  const carregarRanking = useCallback(async (): Promise<LinhaAgente[]> => {
+    const r = await fetch(`/api/leaderboard/${org}`);
+    const b = await r.json();
+    if (!r.ok) throw new Error(b?.error ?? "could not read the ranking");
+    return b.agents;
+  }, [org]);
+
   return (
     <main className="mx-auto max-w-3xl space-y-5 px-6 py-10">
       <header>
@@ -148,6 +165,32 @@ export default function PainelOrg({ org, api }: { org: string; api?: FreighterAp
         remover={remover}
         limitar={limitar}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Operations</CardTitle>
+          <CardDescription>
+            Read from the chain, not from a database of our own. Only approved operations appear:
+            a refusal reverts the transaction.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Feed carregar={carregarFeed} intervaloMs={10000} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Agents by conduct</CardTitle>
+          <CardDescription>
+            Ranked by volume with a verified counterparty — the metric that is expensive to
+            inflate.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Leaderboard carregar={carregarRanking} />
+        </CardContent>
+      </Card>
     </main>
   );
 }

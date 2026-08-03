@@ -57,7 +57,6 @@ export default function Home() {
       <nav className="mt-14 grid gap-4 sm:grid-cols-3">
         {[
           { href: "/constituir", titulo: "Charter an organization", texto: "Corporate account and powers of attorney in one transaction." },
-          { href: "/console", titulo: "Operator console", texto: "Decisions, ranking and payment with the refusal predicted." },
           { href: "/orgs", titulo: "Your organizations", texto: "What this wallet chartered, and the agents in force." },
         ].map((l) => (
           <Link

@@ -68,10 +68,10 @@ export function Navigation() {
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
             <EntrarNoApp
-              destino="/console"
+              destino="/orgs"
               className={`transition-all duration-500 ${isScrolled ? "text-xs text-foreground/70 hover:text-foreground" : "text-sm text-white/70 hover:text-white"}`}
             >
-              Console
+              My orgs
             </EntrarNoApp>
             <EntrarNoApp
               destino="/constituir"
@@ -135,10 +135,10 @@ export function Navigation() {
           style={{ transitionDelay: isMobileMenuOpen ? "300ms" : "0ms" }}
           >
             <EntrarNoApp
-              destino="/console"
+              destino="/orgs"
               className="flex-1 inline-flex items-center justify-center rounded-full border border-foreground/20 h-14 text-base disabled:opacity-50"
             >
-              Console
+              My orgs
             </EntrarNoApp>
             <EntrarNoApp
               destino="/constituir"

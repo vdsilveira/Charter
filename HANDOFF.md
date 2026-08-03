@@ -22,7 +22,7 @@ este arquivo diz **onde paramos**.
 | 5 · tesouraria confidencial | ✅ | 6 testes + 3 skip (`set_spender`) |
 | 6 · ativo permissionado `ALPHA` | ✅ | 6 testes; mint e transferência recusados sem claim |
 | 7 · auditoria e disclosure | ✅ | 4 testes; auditor designado abre, chave errada não |
-| 8 · console e credencial | ✅ | credencial em uma leitura; simulação prevê recusa |
+| 8 · console e credencial | ✅ | console removido; feed e ranking na gestão da org |
 | Taxa de constituição | ✅ | cofre `100000000000 → 100050000000` ao constituir |
 | Gestão de agentes | ✅ | add/remove provados na testnet após o redeploy |
 | Carteira Freighter | ✅ | rede validada antes de assinar |
@@ -252,6 +252,23 @@ usar o padrão, **recriar a organização**.
 **alternativas**. A auth entry tem nonce de uso único — quem liquidar primeiro a
 consome, e a outra falha na simulação. Não é escolha nossa; é o antirreplay do
 Soroban.
+
+---
+
+## O console foi removido — o que foi de cada peça
+
+Tinha três cartões, e cada um teve destino diferente:
+
+- **Pagamento do agente** → apagado. Assinava com a chave do agente **no
+  servidor**, o que contradiz o modelo de cada agente ter a própria, e
+  `src/charter-simulacao.mjs` faz o mesmo caminho do jeito certo.
+- **Feed de operações** → `/org/{org}`. É onde o fundador administra, e "o que
+  minha organização fez" pertence ali.
+- **Ranking por conduta** → `/org/{org}`, pelo mesmo motivo.
+
+As rotas `/api/pagamento` e `/api/pagamento/simular` **continuam existindo** e
+são exercitadas por `write.test.ts` contra a testnet — é a prova mais forte do
+repo de que a recusa acontece on-chain (`4003`). Nenhuma tela as usa.
 
 ---
 
