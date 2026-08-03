@@ -190,6 +190,23 @@ recusar.
 
 ---
 
+## Endereços em uso (03/08/2026, após o último redeploy)
+
+    registro   CAFY6ILDEPSPXQAXC5UEGDA76E3HFRQNJKPNXKDYTCUC2UQX7CXXB4CZ
+    gate       CCCFFYPNVPOUVGDZSOYXEPT74YLEJFFGV62AKXVWOPZD3MKXUCXUUU27
+    conta wasm 5ee23ec794551db2…
+    alphafund  CDLFABDYWQABKEYXQEASC5PZQNPUDC5FHZGVPEKGZUQ6W2FYK3WLRFWW
+
+O registro foi redeployado **por um motivo só**: liberar o nome `Matrix`. Nomes
+são únicos e imutáveis por construção, e a organização antiga ocupava o dele no
+registro anterior. Tudo que existia lá ficou órfão — é o preço de recuperar um
+nome, e vale saber antes de escolher nomes na apresentação.
+
+`alphafund` foi recriada no gate novo, com a carteira de sempre no `trader` e o
+`auditor` sem escopo, e financiada com 50 XLM.
+
+---
+
 ## x402 — fechado ponta a ponta
 
     recurso: 200
